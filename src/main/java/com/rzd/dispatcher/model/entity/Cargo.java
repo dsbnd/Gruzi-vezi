@@ -1,4 +1,4 @@
-package org.example.model.entity;
+package com.rzd.dispatcher.model.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

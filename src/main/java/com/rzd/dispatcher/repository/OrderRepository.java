@@ -1,7 +1,7 @@
-package org.example.repository;
+package com.rzd.dispatcher.repository;
 
-import org.example.model.entity.Order;
-import org.example.model.enums.OrderStatus;
+import com.rzd.dispatcher.model.entity.Order;
+import com.rzd.dispatcher.model.enums.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

@@ -1,6 +1,6 @@
-package org.example.model.entity;
+package com.rzd.dispatcher.model.entity;
 
-import org.example.model.enums.OrderStatus;
+import com.rzd.dispatcher.model.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;

@@ -1,12 +1,12 @@
-package org.example.model.entity;
+package com.rzd.dispatcher.model.entity;
 
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import org.example.model.enums.WagonStatus;
-import org.example.model.enums.WagonType;
+import com.rzd.dispatcher.model.enums.WagonStatus;
+import com.rzd.dispatcher.model.enums.WagonType;
 import org.hibernate.annotations.GenericGenerator;
 
 import java.util.UUID;

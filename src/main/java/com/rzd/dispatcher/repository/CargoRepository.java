@@ -1,8 +1,8 @@
-package org.example.repository;
+package com.rzd.dispatcher.repository;
 
 
 
-import  org.example.model.entity.Cargo;
+import com.rzd.dispatcher.model.entity.Cargo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -1,8 +1,8 @@
-package org.example.repository;
+package com.rzd.dispatcher.repository;
 
-import org.example.model.entity.Wagon;
-import org.example.model.enums.WagonStatus;
-import org.example.model.enums.WagonType;
+import com.rzd.dispatcher.model.entity.Wagon;
+import com.rzd.dispatcher.model.enums.WagonStatus;
+import com.rzd.dispatcher.model.enums.WagonType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
