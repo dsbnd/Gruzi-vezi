@@ -56,7 +56,7 @@ public class Order {
     private Cargo cargo;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<OrderService> services = new ArrayList<>();
+    private List<OrderExtra> services = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
@@ -64,12 +64,12 @@ public class Order {
     }
 
 
-    public void addService(OrderService service) {
+    public void addService(OrderExtra service) {
         services.add(service);
         service.setOrder(this);
     }
 
-    public void removeService(OrderService service) {
+    public void removeService(OrderExtra service) {
         services.remove(service);
         service.setOrder(null);
     }
