@@ -28,7 +28,7 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         // Проверяем, нет ли уже такого пользователя
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            throw new RuntimeException("User with this email already exists");
+            throw new RuntimeException("Пользователь с таким email уже зарегистрирован!");
         }
 
         // Создаем нового пользователя
@@ -52,20 +52,10 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        try {
             // Пытаемся аутентифицировать пользователя
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-            );
-        } catch (org.springframework.security.core.AuthenticationException e) {
-            // ПЕЧАТАЕМ РЕАЛЬНУЮ ОШИБКУ В КОНСОЛЬ!
-            System.err.println("=== ОШИБКА АВТОРИЗАЦИИ ===");
-            System.err.println("Тип ошибки: " + e.getClass().getName());
-            System.err.println("Сообщение: " + e.getMessage());
-            e.printStackTrace();
-
-            throw new RuntimeException("Секретная ошибка: " + e.getMessage());
-        }
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
 
         var user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден в БД"));
