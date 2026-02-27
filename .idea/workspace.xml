@@ -4,18 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="00bf5e58-dd52-4070-a294-498dc03cd479" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db.txt" beforeDir="false" afterPath="$PROJECT_DIR$/db.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/controller/AccountDemoController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/controller/AccountDemoController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/controller/PricingController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/controller/PricingController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/dto/request/PriceCalculationRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/dto/request/PriceCalculationRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/CargoType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/CargoType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/PackagingType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/PackagingType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/WagonType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/WagonType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/service/AdditionalServicesService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/service/AdditionalServicesService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/service/PricingService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/service/PricingService.java" afterDir="false" />
-    </list>
+    <list default="true" id="00bf5e58-dd52-4070-a294-498dc03cd479" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
