@@ -34,6 +34,38 @@ public class Payment {
     @Column(name = "payment_method")
     private String paymentMethod;
 
+    // КОРПОРАТИВНЫЕ РЕКВИЗИТЫ
+    @Column(name = "company_name")
+    private String companyName;
+
+    @Column(name = "inn", length = 12)
+    private String inn;
+
+    @Column(name = "kpp", length = 9)
+    private String kpp;
+
+    @Column(name = "bik", length = 9)
+    private String bik;
+
+    @Column(name = "account_number", length = 20)
+    private String accountNumber;
+
+    @Column(name = "correspondent_account", length = 20)
+    private String correspondentAccount;
+
+    @Column(name = "bank_name")
+    private String bankName;
+
+    @Column(name = "payment_purpose")
+    private String paymentPurpose;
+
+    @Column(name = "payment_document", length = 50)
+    private String paymentDocument;
+
+    @Column(name = "payment_date")
+    private OffsetDateTime paymentDate;
+
+    // Системные поля
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
@@ -42,13 +74,18 @@ public class Payment {
 
     @Column(name = "error_message")
     private String errorMessage;
-//
+
     @PrePersist
     protected void onCreate() {
         createdAt = OffsetDateTime.now();
     }
 
     public enum PaymentStatus {
-        PENDING, SUCCEEDED, FAILED, REFUNDED
+        PENDING,       // Ожидает оплаты
+        PROCESSING,    // Обрабатывается банком
+        SUCCEEDED,     // Оплачено успешно
+        FAILED,        // Ошибка оплаты
+        REFUNDED,      // Возврат
+        WAITING_ACCEPT // Ожидает акцепта (для счетов)
     }
 }

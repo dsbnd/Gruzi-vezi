@@ -70,8 +70,8 @@ CREATE TABLE tariffs (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(cargo_type, wagon_type)
 );
-
--- Таблица платежей
+-- изменения тут начинаются!!
+-- Создаем новую таблицу с корпоративными реквизитами
 CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL,
@@ -79,26 +79,97 @@ CREATE TABLE payments (
     amount DECIMAL(10,2) NOT NULL,
     status VARCHAR(50) NOT NULL,
     payment_method VARCHAR(100),
+
+    -- Корпоративные реквизиты плательщика
+    company_name VARCHAR(255),
+    inn VARCHAR(12),
+    kpp VARCHAR(9),
+
+    -- Банковские реквизиты плательщика
+    bik VARCHAR(9),
+    account_number VARCHAR(20),
+    correspondent_account VARCHAR(20),
+    bank_name VARCHAR(255),
+
+    -- Детали платежа
+    payment_purpose TEXT,
+    payment_document VARCHAR(50),
+    payment_date TIMESTAMP WITH TIME ZONE,
+
+    -- Системные поля
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     paid_at TIMESTAMP WITH TIME ZONE,
     error_message TEXT,
-    -- внешний ключ к orders (предполагаю что у orders тоже UUID)
+
+    -- Внешний ключ
     CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
+-- Индексы для быстрого поиска
+CREATE INDEX idx_payments_order_id ON payments(order_id);
+CREATE INDEX idx_payments_payment_id ON payments(payment_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_inn ON payments(inn);
+CREATE INDEX idx_payments_inn_status ON payments(inn, status);
+CREATE INDEX idx_payments_document ON payments(payment_document);
+CREATE INDEX idx_payments_created_at ON payments(created_at);
+
+-- Комментарии к таблице
+COMMENT ON TABLE payments IS 'Платежи с корпоративными реквизитами для грузовых перевозок';
+COMMENT ON COLUMN payments.inn IS 'ИНН плательщика (10 или 12 цифр)';
+COMMENT ON COLUMN payments.kpp IS 'КПП плательщика (9 цифр для юрлиц)';
+COMMENT ON COLUMN payments.bik IS 'БИК банка плательщика';
+COMMENT ON COLUMN payments.account_number IS 'Расчетный счет плательщика';
+COMMENT ON COLUMN payments.payment_document IS 'Номер платежного документа (платежное поручение)';
+-- тут заканчиваются
 
 -- Индексы для tariffs
 CREATE INDEX idx_tariffs_cargo_type ON tariffs(cargo_type);
 CREATE INDEX idx_tariffs_wagon_type ON tariffs(wagon_type);
+-- начинаются тут обновления
+-- Таблица банковских счетов компаний
+CREATE TABLE company_accounts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inn VARCHAR(12) UNIQUE NOT NULL,              -- ИНН компании (уникальный)
+    company_name VARCHAR(255) NOT NULL,            -- Название компании
+    account_number VARCHAR(20) UNIQUE NOT NULL,    -- Номер счета
+    balance DECIMAL(15,2) DEFAULT 0.00,            -- Текущий баланс
+    bik VARCHAR(9) NOT NULL,                       -- БИК банка
+    bank_name VARCHAR(255) NOT NULL,                -- Название банка
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
--- Индексы для payments
-CREATE INDEX idx_payments_order_id ON payments(order_id);
-CREATE INDEX idx_payments_payment_id ON payments(payment_id);
-CREATE INDEX idx_payments_status ON payments(status);
-CREATE INDEX idx_payments_created_at ON payments(created_at);
+-- Счет РЖД (один общий для всех)
+INSERT INTO company_accounts (inn, company_name, account_number, balance, bik, bank_name) VALUES
+('7708503727', 'ОАО РЖД (Грузовые перевозки)', '40702810900000000001', 10000000.00, '044525225', 'ПАО СБЕРБАНК');
 
+-- Индекс для быстрого поиска по ИНН
+CREATE INDEX idx_company_accounts_inn ON company_accounts(inn);
 
+-- Функция для создания счета при добавлении пользователя
+CREATE OR REPLACE FUNCTION create_account_for_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO company_accounts (inn, company_name, account_number, balance, bik, bank_name)
+    VALUES (
+        NEW.inn,
+        NEW.company_name,
+        '40702810' || substring(NEW.inn from 1 for 8) || floor(random() * 10000)::int,
+        500000.00,  -- Стартовый баланс 500к
+        '044525225',
+        'ПАО СБЕРБАНК'
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
+-- Триггер на добавление пользователя
+CREATE TRIGGER after_user_insert
+    AFTER INSERT ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION create_account_for_new_user();
+-- тут заканчиваются
 
 -- Очищаем таблицы перед вставкой (на случай, если будете запускать скрипт повторно для сброса данных)
 TRUNCATE TABLE order_services, cargo, orders, wagons, users, payments, tariffs CASCADE;
@@ -150,8 +221,42 @@ INSERT INTO tariffs (id, cargo_type, wagon_type, base_rate, coefficient, descrip
 (gen_random_uuid(), 'Контейнеры', 'платформа', 16.00, 1.2, 'Тариф для контейнеров');
 
 
--- 3. Тестовые платежи (для существующих заказов из твоей базы)
--- Предполагаем что у тебя есть заказы с ID из предыдущих скриптов
-INSERT INTO payments (id, order_id, payment_id, amount, status, payment_method, paid_at) VALUES
-(gen_random_uuid(), 'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44', 'pay_123456789', 150000.00, 'SUCCEEDED', 'BANK_CARD', NOW()),
-(gen_random_uuid(), 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33', 'pay_987654321', 75000.00, 'PENDING', 'SBP', NULL);
+INSERT INTO payments (
+    id, order_id, payment_id, amount, status, payment_method,
+    company_name, inn, kpp, bik, account_number, bank_name,
+    payment_purpose, payment_document, created_at
+) VALUES
+(
+    gen_random_uuid(),
+    'd0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44',
+    'pay_123456789',
+    150000.00,
+    'SUCCEEDED',
+    'BANK_TRANSFER',
+    'ООО Ромашка',
+    '7701234567',
+    '770101001',
+    '044525225',
+    '40702810123450123456',
+    'ПАО СБЕРБАНК',
+    'Оплата грузовой перевозки по договору №РЖД-2026-123',
+    'РЖД-1712345678-123',
+    '2026-02-27 10:00:00+03'
+),
+(
+    gen_random_uuid(),
+    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33',
+    'pay_987654321',
+    75000.00,
+    'PENDING',
+    'BANK_TRANSFER',
+    'ООО Вектор',
+    '7709876543',
+    '770901001',
+    '044525111',
+    '40702810567890123456',
+    'АО АЛЬФА-БАНК',
+    'Предоплата за перевозку оборудования',
+    'РЖД-1712345678-124',
+    '2026-02-27 11:30:00+03'
+);

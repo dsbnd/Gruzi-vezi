@@ -2,6 +2,7 @@ package com.rzd.dispatcher.service;
 
 import com.rzd.dispatcher.model.entity.Payment;
 import com.rzd.dispatcher.model.entity.Payment.PaymentStatus;
+import com.rzd.dispatcher.model.dto.request.PaymentRequest;
 import com.rzd.dispatcher.model.dto.request.PaymentWebhookRequest;
 import com.rzd.dispatcher.model.dto.response.PaymentResponse;
 import com.rzd.dispatcher.repository.PaymentRepository;
@@ -27,26 +28,114 @@ public class PaymentService {
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String PAYMENT_IDEMPOTENCY_KEY = "payment:processed:";
+    private static final String PAYMENT_INN_CACHE_KEY = "payments:inn:";
 
+    /**
+     * Создание корпоративного платежа с реквизитами
+     */
     @Transactional
-    public Payment createPayment(UUID orderId, BigDecimal amount, String paymentMethod) {
-        log.info("Создание платежа для заказа {} на сумму {}", orderId, amount);
+    public Payment createCorporatePayment(PaymentRequest request) {
+        log.info("Создание корпоративного платежа: ИНН={}, компания={}",
+                request.getInn(), request.getCompanyName());
+
+        // Проверка на дубликат (нельзя создать два одинаковых платежа)
+        boolean exists = paymentRepository.existsByInnAndAmountAndPaymentPurposeAndStatusIn(
+                request.getInn(),
+                request.getAmount(),
+                request.getPaymentPurpose(),
+                List.of(PaymentStatus.PENDING, PaymentStatus.PROCESSING, PaymentStatus.SUCCEEDED)
+        );
+
+        if (exists) {
+            throw new RuntimeException("Платеж с такими реквизитами уже существует");
+        }
 
         Payment payment = new Payment();
-        payment.setOrderId(orderId);
-        payment.setAmount(amount);
-        payment.setPaymentMethod(paymentMethod);
+        payment.setOrderId(request.getOrderId());
+        payment.setAmount(request.getAmount());
         payment.setStatus(PaymentStatus.PENDING);
 
-        return paymentRepository.save(payment);
+        // Заполняем корпоративные реквизиты
+        payment.setCompanyName(request.getCompanyName());
+        payment.setInn(request.getInn());
+        payment.setKpp(request.getKpp());
+        payment.setBik(request.getBik());
+        payment.setAccountNumber(request.getAccountNumber());
+        payment.setCorrespondentAccount(request.getCorrespondentAccount());
+        payment.setBankName(request.getBankName());
+        payment.setPaymentPurpose(request.getPaymentPurpose());
+
+        // Генерируем номер платежного документа
+        payment.setPaymentDocument(generatePaymentDocumentNumber());
+
+        Payment savedPayment = paymentRepository.save(payment);
+
+        // Кэшируем в Redis для быстрого поиска по ИНН
+        cachePaymentByInn(savedPayment);
+
+        log.info("Создан платеж: {}, документ: {}", savedPayment.getId(), savedPayment.getPaymentDocument());
+
+        return savedPayment;
     }
 
-    @Transactional
-    public PaymentResponse handleWebhook(PaymentWebhookRequest request) {
-        log.info("Обработка вебхука: paymentId={}, status={}",
-                request.getPaymentId(), request.getStatus());
+    /**
+     * Генерация номера платежного документа
+     */
+    private String generatePaymentDocumentNumber() {
+        return String.format("РЖД-%d-%03d",
+                System.currentTimeMillis() / 1000,
+                (int)(Math.random() * 1000));
+    }
 
-        // Проверка на дубликат через Redis
+    /**
+     * Кэширование платежа по ИНН в Redis
+     */
+    private void cachePaymentByInn(Payment payment) {
+        String key = PAYMENT_INN_CACHE_KEY + payment.getInn();
+        redisTemplate.opsForList().leftPush(key, payment.getId().toString());
+        redisTemplate.expire(key, 30, TimeUnit.DAYS);
+    }
+
+    /**
+     * Поиск платежей по ИНН (с использованием Redis)
+     */
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> findPaymentsByInn(String inn) {
+        log.info("Поиск платежей по ИНН: {}", inn);
+
+        String key = PAYMENT_INN_CACHE_KEY + inn;
+        List<String> paymentIds = redisTemplate.opsForList().range(key, 0, -1);
+
+        if (paymentIds != null && !paymentIds.isEmpty()) {
+            log.info("Найдено {} платежей в Redis", paymentIds.size());
+            return paymentIds.stream()
+                    .map(UUID::fromString)
+                    .map(id -> paymentRepository.findById(id).orElse(null))
+                    .filter(p -> p != null)
+                    .map(this::convertToResponse)
+                    .collect(Collectors.toList());
+        }
+
+        // Если нет в Redis - ищем в БД
+        List<Payment> payments = paymentRepository.findByInn(inn);
+
+        // Сохраняем в Redis
+        payments.forEach(this::cachePaymentByInn);
+
+        return payments.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Обработка вебхука от банка/платежной системы
+     */
+    @Transactional
+    public PaymentResponse handleBankWebhook(PaymentWebhookRequest request) {
+        log.info("Обработка банковского вебхука: paymentId={}, status={}, inn={}",
+                request.getPaymentId(), request.getStatus(), request.getInn());
+
+        // Защита от дублей через Redis
         String idempotencyKey = PAYMENT_IDEMPOTENCY_KEY + request.getPaymentId();
         Boolean isProcessed = redisTemplate.opsForValue()
                 .setIfAbsent(idempotencyKey, "processed", 24, TimeUnit.HOURS);
@@ -57,15 +146,17 @@ public class PaymentService {
         }
 
         try {
-            // Ищем существующий платеж или создаем новый
+            // Ищем платеж по paymentId или по ИНН+сумме
             Payment payment = paymentRepository.findByPaymentId(request.getPaymentId())
                     .orElseGet(() -> {
-                        Payment newPayment = new Payment();
-                        newPayment.setOrderId(request.getOrderId());
-                        newPayment.setPaymentId(request.getPaymentId());
-                        newPayment.setAmount(request.getAmount());
-                        newPayment.setPaymentMethod(request.getPaymentMethod());
-                        return newPayment;
+                        if (request.getInn() != null && request.getAmount() != null) {
+                            return paymentRepository.findByInnAndAmountAndStatus(
+                                    request.getInn(),
+                                    request.getAmount(),
+                                    PaymentStatus.PENDING
+                            ).orElseThrow(() -> new RuntimeException("Платеж не найден"));
+                        }
+                        throw new RuntimeException("Недостаточно данных для поиска платежа");
                     });
 
             // Обновляем статус
@@ -73,19 +164,36 @@ public class PaymentService {
                 case "succeeded":
                     payment.setStatus(PaymentStatus.SUCCEEDED);
                     payment.setPaidAt(OffsetDateTime.now());
-                    log.info("Платеж {} успешно завершен", request.getPaymentId());
+                    payment.setPaymentDate(request.getPaymentDate());
+
+                    if (request.getPaymentDocument() != null) {
+                        payment.setPaymentDocument(request.getPaymentDocument());
+                    }
+
+                    log.info("Платеж от {} (ИНН: {}) успешно завершен",
+                            payment.getCompanyName(), payment.getInn());
+                    break;
+
+                case "processing":
+                    payment.setStatus(PaymentStatus.PROCESSING);
+                    log.info("Платеж {} в обработке банка", request.getPaymentId());
                     break;
 
                 case "failed":
                     payment.setStatus(PaymentStatus.FAILED);
                     payment.setErrorMessage(request.getErrorMessage());
-                    log.warn("Платеж {} не удался", request.getPaymentId());
+                    log.warn("Платеж {} не удался: {}", request.getPaymentId(), request.getErrorMessage());
                     break;
 
                 case "refunded":
                     payment.setStatus(PaymentStatus.REFUNDED);
                     log.info("Платеж {} возвращен", request.getPaymentId());
                     break;
+            }
+
+            // Обновляем реквизиты, если пришли
+            if (request.getPaymentId() != null) {
+                payment.setPaymentId(request.getPaymentId());
             }
 
             Payment savedPayment = paymentRepository.save(payment);
@@ -98,6 +206,66 @@ public class PaymentService {
         }
     }
 
+    /**
+     * Получение платежного поручения (счет на оплату)
+     */
+    @Transactional(readOnly = true)
+    public String generateInvoice(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Платеж не найден"));
+
+        StringBuilder invoice = new StringBuilder();
+        invoice.append("╔════════════════════════════════════════════════════════╗\n");
+        invoice.append("║              ПЛАТЕЖНОЕ ПОРУЧЕНИЕ                      ║\n");
+        invoice.append("╠════════════════════════════════════════════════════════╣\n");
+        invoice.append(String.format("║ Номер: %-45s ║\n", payment.getPaymentDocument()));
+        invoice.append(String.format("║ Дата: %-47s ║\n", payment.getCreatedAt()));
+        invoice.append("╠════════════════════════════════════════════════════════╣\n");
+        invoice.append("║ ПЛАТЕЛЬЩИК:                                            ║\n");
+        invoice.append(String.format("║   %-51s ║\n", payment.getCompanyName()));
+        invoice.append(String.format("║   ИНН %-12s КПП %-9s              ║\n",
+                payment.getInn(), payment.getKpp() != null ? payment.getKpp() : ""));
+        invoice.append(String.format("║   %-51s ║\n", payment.getBankName()));
+        invoice.append(String.format("║   БИК %-9s Счет %-20s ║\n",
+                payment.getBik(), payment.getAccountNumber()));
+        invoice.append("╠════════════════════════════════════════════════════════╣\n");
+        invoice.append("║ ПОЛУЧАТЕЛЬ: ОАО РЖД                                   ║\n");
+        invoice.append("║   ИНН 7708503727 КПП 770801001                        ║\n");
+        invoice.append("║   ПАО СБЕРБАНК г. Москва                              ║\n");
+        invoice.append("║   БИК 044525225 Счет 40702810123456789012             ║\n");
+        invoice.append("╠════════════════════════════════════════════════════════╣\n");
+        invoice.append(String.format("║ Сумма: %-20s RUB                           ║\n", payment.getAmount()));
+        invoice.append(String.format("║ Назначение: %-43s ║\n",
+                payment.getPaymentPurpose() != null ? payment.getPaymentPurpose() : "Оплата перевозки"));
+        invoice.append("╚════════════════════════════════════════════════════════╝");
+
+        return invoice.toString();
+    }
+
+    /**
+     * Отправка вебхука об успешной оплате (вызывается после списания денег)
+     */
+    @Transactional
+    public void sendSuccessWebhook(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Платеж не найден"));
+
+        // Создаем вебхук
+        PaymentWebhookRequest webhook = new PaymentWebhookRequest();
+        webhook.setPaymentId("bank_real_" + System.currentTimeMillis());
+        webhook.setOrderId(payment.getOrderId());
+        webhook.setStatus("succeeded");
+        webhook.setAmount(payment.getAmount());
+        webhook.setInn(payment.getInn());
+        webhook.setCompanyName(payment.getCompanyName());
+        webhook.setPaymentDocument("ПП-" + System.currentTimeMillis());
+        webhook.setPaymentDate(OffsetDateTime.now());
+
+        // Отправляем в себя (имитация вебхука от банка)
+        handleBankWebhook(webhook);
+
+        log.info("✅ Вебхук об успешной оплате отправлен для платежа {}", paymentId);
+    }
     @Transactional(readOnly = true)
     public PaymentResponse getPaymentStatus(UUID paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
@@ -125,6 +293,14 @@ public class PaymentService {
                 .amount(payment.getAmount())
                 .status(payment.getStatus().name())
                 .paymentMethod(payment.getPaymentMethod())
+                .companyName(payment.getCompanyName())
+                .inn(payment.getInn())
+                .kpp(payment.getKpp())
+                .bik(payment.getBik())
+                .accountNumber(payment.getAccountNumber())
+                .bankName(payment.getBankName())
+                .paymentDocument(payment.getPaymentDocument())
+                .paymentPurpose(payment.getPaymentPurpose())
                 .createdAt(payment.getCreatedAt())
                 .paidAt(payment.getPaidAt())
                 .build();
