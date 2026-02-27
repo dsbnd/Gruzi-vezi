@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.controller;
 
 import com.rzd.dispatcher.model.dto.request.LoginRequest;
+import com.rzd.dispatcher.model.dto.request.LogoutRequest;
 import com.rzd.dispatcher.model.dto.request.RefreshTokenRequest;
 import com.rzd.dispatcher.model.dto.request.RegisterRequest;
 import com.rzd.dispatcher.model.dto.response.AuthResponse;
@@ -33,5 +34,11 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(authService.refreshToken(request));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@Valid @RequestBody LogoutRequest request) {
+        authService.logout(request.getRefreshToken());
+        return ResponseEntity.ok("Вы успешно вышли из системы");
     }
 }
