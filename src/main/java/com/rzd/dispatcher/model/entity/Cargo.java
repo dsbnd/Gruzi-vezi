@@ -1,5 +1,7 @@
 package com.rzd.dispatcher.model.entity;
 
+import com.rzd.dispatcher.model.enums.CargoType;
+import com.rzd.dispatcher.model.enums.PackagingType;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,8 +26,9 @@ public class Cargo {
     @JoinColumn(name = "order_id", unique = true, nullable = false)
     private Order order;
 
-    @Column(name = "cargo_type", nullable = false, length = 255)
-    private String cargoType;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "cargo_type", nullable = false)
+    private CargoType cargoType;
 
     @Column(name = "weight_kg", nullable = false)
     private Integer weightKg;
@@ -33,6 +36,7 @@ public class Cargo {
     @Column(name = "volume_m3", nullable = false)
     private Integer volumeM3;
 
-    @Column(name = "packaging_type", nullable = false, length = 100)
-    private String packagingType;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "packaging_type", nullable = false)
+    private PackagingType packagingType;
 }

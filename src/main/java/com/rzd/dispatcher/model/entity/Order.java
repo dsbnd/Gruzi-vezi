@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.model.entity;
 
 import com.rzd.dispatcher.model.enums.OrderStatus;
+import com.rzd.dispatcher.model.enums.WagonType;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -34,6 +35,10 @@ public class Order {
 
     @Column(name = "destination_station", nullable = false, length = 255)
     private String destinationStation;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "requested_wagon_type", nullable = false)
+    private WagonType requestedWagonType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wagon_id")

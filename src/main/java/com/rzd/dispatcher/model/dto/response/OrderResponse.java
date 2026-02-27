@@ -1,11 +1,13 @@
 package com.rzd.dispatcher.model.dto.response;
 
-
 import com.rzd.dispatcher.model.entity.Order;
+import com.rzd.dispatcher.model.enums.CargoType;
+import com.rzd.dispatcher.model.enums.OrderStatus;
+import com.rzd.dispatcher.model.enums.PackagingType;
+import com.rzd.dispatcher.model.enums.ServiceName;
+import com.rzd.dispatcher.model.enums.WagonType;
 import lombok.Builder;
 import lombok.Data;
-import com.rzd.dispatcher.model.enums.OrderStatus;
-import com.rzd.dispatcher.model.enums.ServiceName;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -21,6 +23,10 @@ public class OrderResponse {
     private String companyName;
     private String departureStation;
     private String destinationStation;
+
+    // Добавили желаемый тип вагона, чтобы фронтенд его видел
+    private WagonType requestedWagonType;
+
     private UUID wagonId;
     private String wagonNumber;
     private OrderStatus status;
@@ -33,10 +39,10 @@ public class OrderResponse {
     @Data
     @Builder
     public static class CargoDto {
-        private String cargoType;
+        private CargoType cargoType;         // Изменили String на Enum
         private Integer weightKg;
         private Integer volumeM3;
-        private String packagingType;
+        private PackagingType packagingType; // Изменили String на Enum
     }
 
     @Data
@@ -53,6 +59,7 @@ public class OrderResponse {
                 .companyName(order.getUser().getCompanyName())
                 .departureStation(order.getDepartureStation())
                 .destinationStation(order.getDestinationStation())
+                .requestedWagonType(order.getRequestedWagonType()) // Прокинули это поле из сущности
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
                 .carbonFootprintKg(order.getCarbonFootprintKg())
@@ -64,6 +71,7 @@ public class OrderResponse {
         }
 
         if (order.getCargo() != null) {
+            // Теперь здесь идеальное совпадение типов (Enum -> Enum)
             builder.cargo(CargoDto.builder()
                     .cargoType(order.getCargo().getCargoType())
                     .weightKg(order.getCargo().getWeightKg())

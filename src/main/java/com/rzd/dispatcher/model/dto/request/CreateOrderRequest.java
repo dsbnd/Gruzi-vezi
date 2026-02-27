@@ -1,29 +1,30 @@
 package com.rzd.dispatcher.model.dto.request;
 
+import com.rzd.dispatcher.model.enums.CargoType;
+import com.rzd.dispatcher.model.enums.PackagingType;
+import com.rzd.dispatcher.model.enums.WagonType;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
-
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateOrderRequest {
 
-    @NotNull(message = "User ID is required")
-    private UUID userId;
-
     @NotBlank(message = "Departure station is required")
-    @Size(max = 255, message = "Departure station must be less than 255 characters")
     private String departureStation;
 
     @NotBlank(message = "Destination station is required")
-    @Size(max = 255, message = "Destination station must be less than 255 characters")
     private String destinationStation;
 
+    @NotNull(message = "Wagon type is required")
+    private WagonType requestedWagonType; // Желаемый род вагона
+
     @NotNull(message = "Cargo information is required")
+    @Valid
     private CargoDto cargo;
 
     @Data
@@ -31,19 +32,18 @@ public class CreateOrderRequest {
     @AllArgsConstructor
     public static class CargoDto {
 
-        @NotBlank(message = "Cargo type is required")
-        private String cargoType;
+        @NotNull(message = "Cargo type is required")
+        private CargoType cargoType;
 
         @NotNull(message = "Weight is required")
-        @Min(value = 1, message = "Weight must be at least 1 kg")
-        @Max(value = 1000000, message = "Weight must be less than 1000000 kg")
+        @Min(value = 1)
         private Integer weightKg;
 
         @NotNull(message = "Volume is required")
-        @Min(value = 1, message = "Volume must be at least 1 m3")
+        @Min(value = 1)
         private Integer volumeM3;
 
-        @NotBlank(message = "Packaging type is required")
-        private String packagingType;
+        @NotNull(message = "Packaging type is required")
+        private PackagingType packagingType;
     }
 }
