@@ -17,10 +17,7 @@ public class AccountDemoController {
     private final AccountService accountService;
     private final PaymentService paymentService;
 
-    /**
-     * ПОЛНЫЙ ЦИКЛ: Оплата перевозки со списанием денег
-     * GET /api/demo/accounts/pay?paymentId=...
-     */
+
     @GetMapping("/pay")
     public String processPaymentWithMoneyTransfer(@RequestParam UUID paymentId) {
 
@@ -55,6 +52,6 @@ public class AccountDemoController {
     @PostMapping("/create")
     public String createAccount(@RequestParam String inn, @RequestParam String companyName) {
         accountService.createAccountForCompany(inn, companyName);
-        return String.format("✅ Счет создан для компании %s (ИНН: %s)", companyName, inn);
+        return String.format("Счет создан для компании %s (ИНН: %s)", companyName, inn);
     }
 }
