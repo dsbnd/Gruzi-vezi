@@ -5,24 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="85bd87f7-7f55-4f29-ad6a-348715b6a130" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/Main.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db.txt" beforeDir="false" afterPath="$PROJECT_DIR$/db.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/Main.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/entity/Cargo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/Cargo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/entity/Order.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/Order.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/entity/OrderExtra.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/OrderExtra.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/User.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/entity/Wagon.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/Wagon.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/enums/OrderStatus.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/OrderStatus.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/enums/ServiceName.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/ServiceName.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/enums/WagonStatus.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/WagonStatus.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/model/enums/WagonType.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/enums/WagonType.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/repository/CargoRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/repository/CargoRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/repository/OrderRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/repository/OrderRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/repository/UserRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/repository/WagonRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/repository/WagonRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/User.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -75,13 +60,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.Build gruzi_vezi.executor": "Run",
+    "Gradle.gruzi_vezi [:com.rzd.dispatcher.Main.main()].executor": "Run",
+    "Gradle.gruzi_vezi [:org.example.Main.main()].executor": "Run",
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "Spring Boot.Main.executor": "Run",
+    "git-widget-placeholder": "master"
   }
-}</component>
+}]]></component>
   <component name="RunManager" selected="Application.com.rzd.dispatcher.Main">
     <configuration name="Main" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="org.example.Main" />
@@ -127,8 +116,11 @@
       </ExternalSystemSettings>
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <ExternalSystemDebugDisabled>false</ExternalSystemDebugDisabled>
       <DebugAllEnabled>false</DebugAllEnabled>
       <RunAsTest>false</RunAsTest>
+      <GradleProfilingDisabled>false</GradleProfilingDisabled>
+      <GradleCoverageDisabled>false</GradleCoverageDisabled>
       <method v="2" />
     </configuration>
     <configuration name="Gruzi-vezi [clean]" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
@@ -149,8 +141,11 @@
       </ExternalSystemSettings>
       <ExternalSystemDebugServerProcess>true</ExternalSystemDebugServerProcess>
       <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <ExternalSystemDebugDisabled>false</ExternalSystemDebugDisabled>
       <DebugAllEnabled>false</DebugAllEnabled>
       <RunAsTest>false</RunAsTest>
+      <GradleProfilingDisabled>false</GradleProfilingDisabled>
+      <GradleCoverageDisabled>false</GradleCoverageDisabled>
       <method v="2" />
     </configuration>
     <recent_temporary>
@@ -161,6 +156,13 @@
         <item itemvalue="Gradle.Gruzi-vezi [clean]" />
       </list>
     </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.30387.90" />
+      </set>
+    </attachedChunks>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
