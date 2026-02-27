@@ -97,4 +97,9 @@ public class AuthService {
                 .refreshToken(requestRefreshToken) // Возвращаем старый рефреш, пока он не протух
                 .build();
     }
+
+    public void logout(String refreshToken) {
+        // Удаляем токен из Redis
+        refreshTokenService.deleteRefreshToken(refreshToken);
+    }
 }

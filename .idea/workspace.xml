@@ -6,8 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="85bd87f7-7f55-4f29-ad6a-348715b6a130" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/model/entity/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/controller/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/rzd/dispatcher/service/AuthService.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
