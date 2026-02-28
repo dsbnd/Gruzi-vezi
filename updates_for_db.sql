@@ -67,5 +67,3 @@ DO UPDATE SET
     coefficient = EXCLUDED.coefficient,
     min_price = EXCLUDED.min_price;
 
-
-
