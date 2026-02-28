@@ -19,7 +19,7 @@ public class JwtService {
     // Секретный ключ (должен быть не менее 256 бит). В проде хранить в application.yml!
     private static final String SECRET_KEY = "VGhpc0lzQVZlcnlTZWNcmV0S2V5Rm9ySldUR2VuZXJhdGlvblVzaW5nU3ByaW5nQm9vdA==";
     // Access token живет 15 минут
-    private static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 60 * 24;
+    private static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 15;
 
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
