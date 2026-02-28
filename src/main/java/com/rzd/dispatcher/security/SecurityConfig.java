@@ -35,7 +35,13 @@ public class SecurityConfig {
                     return corsConfiguration;
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/error").permitAll()
+                        // Публичные эндпоинты
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/dispatcher/pricing/calculate",
+                                "/api/dispatcher/pricing/estimate"
+                        ).permitAll()
+                        // Все остальные требуют авторизации
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess
