@@ -6,6 +6,7 @@ import com.rzd.dispatcher.model.dto.request.PaymentRequest;
 import com.rzd.dispatcher.model.dto.request.PaymentWebhookRequest;
 import com.rzd.dispatcher.model.dto.response.PaymentResponse;
 import com.rzd.dispatcher.repository.PaymentRepository;
+import com.rzd.dispatcher.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final PdfGeneratorService pdfGeneratorService;
 
@@ -35,13 +37,22 @@ public class PaymentService {
      * Создание корпоративного платежа с реквизитами
      */
     @Transactional
-    public Payment createCorporatePayment(PaymentRequest request) {
-        log.info("Создание корпоративного платежа: ИНН={}, компания={}",
-                request.getInn(), request.getCompanyName());
+    public Payment createCorporatePayment(PaymentRequest request, String userEmail) {
+        log.info("Создание корпоративного платежа пользователем: {}", userEmail);
 
-        // Проверка на дубликат (нельзя создать два одинаковых платежа)
+        // Получаем пользователя по email
+        var user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+
+        // Игнорируем ИНН из запроса, берем из БД!
+        String actualInn = user.getInn();
+        String actualCompanyName = user.getCompanyName();
+
+        log.info("ИНН из запроса: {}, ИНН из БД: {}", request.getInn(), actualInn);
+
+        // Проверка на дубликат
         boolean exists = paymentRepository.existsByInnAndAmountAndPaymentPurposeAndStatusIn(
-                request.getInn(),
+                actualInn,
                 request.getAmount(),
                 request.getPaymentPurpose(),
                 List.of(PaymentStatus.PENDING, PaymentStatus.PROCESSING, PaymentStatus.SUCCEEDED)
@@ -56,9 +67,9 @@ public class PaymentService {
         payment.setAmount(request.getAmount());
         payment.setStatus(PaymentStatus.PENDING);
 
-        // Заполняем корпоративные реквизиты
-        payment.setCompanyName(request.getCompanyName());
-        payment.setInn(request.getInn());
+        // Заполняем корпоративные реквизиты ИЗ БД!
+        payment.setCompanyName(actualCompanyName);
+        payment.setInn(actualInn);
         payment.setKpp(request.getKpp());
         payment.setBik(request.getBik());
         payment.setAccountNumber(request.getAccountNumber());
@@ -71,14 +82,13 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Кэшируем в Redis для быстрого поиска по ИНН
+        // Кэшируем в Redis
         cachePaymentByInn(savedPayment);
 
         log.info("Создан платеж: {}, документ: {}", savedPayment.getId(), savedPayment.getPaymentDocument());
 
         return savedPayment;
     }
-
     /**
      * Генерация номера платежного документа
      */

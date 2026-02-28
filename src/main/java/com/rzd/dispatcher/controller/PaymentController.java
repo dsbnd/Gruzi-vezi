@@ -7,9 +7,10 @@ import com.rzd.dispatcher.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,13 +21,13 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-
     @PostMapping("/corporate")
     public ResponseEntity<PaymentResponse> createCorporatePayment(
-            @Valid @RequestBody PaymentRequest request) {
+            @Valid @RequestBody PaymentRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
 
         com.rzd.dispatcher.model.entity.Payment payment =
-                paymentService.createCorporatePayment(request);
+                paymentService.createCorporatePayment(request, userDetails.getUsername());
 
         return ResponseEntity.ok(convertToResponse(payment));
     }
@@ -35,23 +36,18 @@ public class PaymentController {
     @GetMapping("/search/by-inn")
     public ResponseEntity<List<PaymentResponse>> findPaymentsByInn(
             @RequestParam String inn) {
-
         List<PaymentResponse> payments = paymentService.findPaymentsByInn(inn);
         return ResponseEntity.ok(payments);
     }
 
-
     @GetMapping("/{paymentId}/invoice")
     public ResponseEntity<byte[]> generateInvoice(@PathVariable UUID paymentId) {
-        // Вызываем только paymentService
         byte[] pdfContent = paymentService.generateInvoicePdf(paymentId);
-
         return ResponseEntity.ok()
                 .header("Content-Type", "application/pdf")
                 .header("Content-Disposition", "attachment; filename=\"invoice_" + paymentId + ".pdf\"")
                 .body(pdfContent);
     }
-
 
     @PostMapping("/bank-webhook")
     public ResponseEntity<PaymentResponse> handleBankWebhook(
@@ -60,7 +56,6 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-
     @GetMapping("/{paymentId}")
     public ResponseEntity<PaymentResponse> getPaymentStatus(
             @PathVariable UUID paymentId) {
@@ -68,9 +63,6 @@ public class PaymentController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Получение платежей по заказу (работает)
-     */
     @GetMapping("/order/{orderId}")
     public ResponseEntity<List<PaymentResponse>> getOrderPayments(
             @PathVariable UUID orderId) {
@@ -78,9 +70,6 @@ public class PaymentController {
         return ResponseEntity.ok(payments);
     }
 
-    /**
-     * Проверка оплаты заказа (работает)
-     */
     @GetMapping("/order/{orderId}/paid")
     public ResponseEntity<Boolean> isOrderPaid(@PathVariable UUID orderId) {
         boolean paid = paymentService.isOrderPaid(orderId);
