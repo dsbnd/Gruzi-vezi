@@ -26,6 +26,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final PdfGeneratorService pdfGeneratorService;
 
     private static final String PAYMENT_IDEMPOTENCY_KEY = "payment:processed:";
     private static final String PAYMENT_INN_CACHE_KEY = "payments:inn:";
@@ -304,5 +305,18 @@ public class PaymentService {
                 .createdAt(payment.getCreatedAt())
                 .paidAt(payment.getPaidAt())
                 .build();
+    }
+
+
+    public byte[] generateInvoicePdf(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Платеж не найден"));
+        log.info("Генерация PDF для платежа {}. Сумма в БД: {}", paymentId, payment.getAmount());
+        try {
+            return pdfGeneratorService.generateInvoicePdf(payment);
+        } catch (Exception e) {
+            log.error("Ошибка при генерации PDF для платежа {}", paymentId, e);
+            throw new RuntimeException("Не удалось создать PDF документ");
+        }
     }
 }

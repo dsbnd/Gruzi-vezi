@@ -42,9 +42,14 @@ public class PaymentController {
 
 
     @GetMapping("/{paymentId}/invoice")
-    public ResponseEntity<String> generateInvoice(@PathVariable UUID paymentId) {
-        String invoice = paymentService.generateInvoice(paymentId);
-        return ResponseEntity.ok(invoice);
+    public ResponseEntity<byte[]> generateInvoice(@PathVariable UUID paymentId) {
+        // Вызываем только paymentService
+        byte[] pdfContent = paymentService.generateInvoicePdf(paymentId);
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"invoice_" + paymentId + ".pdf\"")
+                .body(pdfContent);
     }
 
 
