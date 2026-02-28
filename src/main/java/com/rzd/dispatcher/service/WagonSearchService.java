@@ -7,6 +7,7 @@ import com.rzd.dispatcher.model.enums.WagonStatus;
 import com.rzd.dispatcher.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,36 +29,64 @@ public class WagonSearchService {
     private final WagonScheduleRepository scheduleRepository;
     private final WagonTariffRepository tariffRepository;
     private final StationDistanceRepository distanceRepository;
+    private final RedisTemplate<String, String> redisTemplate; // Добавляем Redis
+
+    private static final String WAGON_RESERVATION_KEY = "wagon:reserved:";
 
     /**
      * ОСНОВНОЙ МЕТОД: Поиск доступных вагонов под заявку
      */
     @Transactional(readOnly = true)
     public List<WagonAvailabilityResponse> findAvailableWagons(WagonSearchRequest request) {
-        log.info("🔍 ПОИСК ВАГОНОВ: станция={}, вес={}кг, тип={}",
+        log.info("Поиск вагонов: станция={}, вес={}кг, тип={}",
                 request.getDepartureStation(), request.getWeightKg(), request.getPreferredWagonType());
 
-        // 1. Сначала ищем свободные вагоны на станции через findAvailableWagons (уже есть в репозитории)
+        // 1. Сначала ищем свободные вагоны на станции
         List<Wagon> wagonsOnStation = wagonRepository.findAvailableWagons(
                 request.getDepartureStation(),
                 request.getWeightKg(),
                 request.getVolumeM3() != null ? request.getVolumeM3() : 0
         );
 
+        log.info("Найдено вагонов в БД до фильтрации: {}", wagonsOnStation.size());
+        for (Wagon w : wagonsOnStation) {
+            log.info("  - Вагон: {}, вес: {}кг, объем: {}м³",
+                    w.getWagonNumber(), w.getMaxWeightKg(), w.getMaxVolumeM3());
+        }
+
         List<WagonAvailabilityResponse> result = new ArrayList<>();
 
         // 2. Фильтруем по типу вагона и проверяем доступность по датам
+        // 2. Фильтруем по типу вагона и проверяем доступность по датам
         for (Wagon wagon : wagonsOnStation) {
+            log.info("Проверка вагона: {}", wagon.getWagonNumber());
+
             // Фильтр по типу вагона, если указан
-            if (request.getPreferredWagonType() != null &&
-                    !wagon.getWagonType().name().equalsIgnoreCase(request.getPreferredWagonType())) {
+            if (request.getPreferredWagonType() != null) {
+                log.info("  Тип вагона: {}, ищем: {}",
+                        wagon.getWagonType().name(), request.getPreferredWagonType());
+                if (!wagon.getWagonType().name().equalsIgnoreCase(request.getPreferredWagonType())) {
+                    log.info("  ❌ Не подходит по типу");
+                    continue;
+                }
+            }
+
+            // Проверка резервации в Redis
+            if (isWagonReserved(wagon.getId())) {
+                log.info("  ❌ Вагон зарезервирован в Redis");
                 continue;
             }
 
-            // Проверяем, свободен ли вагон в нужные даты (конвертируем LocalDateTime в OffsetDateTime)
-            if (isWagonAvailableForDates(wagon, convertToOffsetDateTime(request.getRequiredDepartureDate()))) {
+            // Проверка доступности по датам
+            OffsetDateTime requiredDate = convertToOffsetDateTime(request.getRequiredDepartureDate());
+            log.info("  Проверка доступности на дату: {}", requiredDate);
+
+            if (isWagonAvailableForDates(wagon, requiredDate)) {
+                log.info("  ✅ Вагон доступен");
                 WagonAvailabilityResponse response = buildWagonResponse(wagon, request);
                 result.add(response);
+            } else {
+                log.info("  ❌ Вагон не доступен по датам (есть конфликты в расписании)");
             }
         }
 
@@ -66,6 +96,10 @@ public class WagonSearchService {
             for (Wagon wagon : nearbyWagons) {
                 if (result.size() >= 10) break;
 
+                if (isWagonReserved(wagon.getId())) {
+                    continue; // Пропускаем зарезервированные
+                }
+
                 WagonAvailabilityResponse response = buildWagonResponseWithDistance(wagon, request);
                 result.add(response);
             }
@@ -74,21 +108,106 @@ public class WagonSearchService {
         // 4. Сортируем по проценту соответствия
         result.sort((a, b) -> b.getMatchPercentage().compareTo(a.getMatchPercentage()));
 
-        log.info("✅ Найдено {} доступных вагонов", result.size());
+        log.info("Найдено {} доступных вагонов", result.size());
         return result;
     }
 
     /**
-     * Конвертер LocalDateTime в OffsetDateTime
+     * НОВЫЙ МЕТОД: Резервирование вагона
      */
-    private OffsetDateTime convertToOffsetDateTime(LocalDateTime localDateTime) {
-        if (localDateTime == null) return null;
-        return localDateTime.atOffset(ZoneOffset.ofHours(3)); // MSK timezone
+    @Transactional
+    public boolean reserveWagon(UUID wagonId, UUID orderId, int minutes) {
+        log.info("Резервирование вагона {} для заказа {} на {} минут", wagonId, orderId, minutes);
+
+        // 1. Проверяем в Redis, не зарезервирован ли уже
+        String redisKey = WAGON_RESERVATION_KEY + wagonId;
+        Boolean isReserved = redisTemplate.opsForValue()
+                .setIfAbsent(redisKey, orderId.toString(), minutes, TimeUnit.MINUTES);
+
+        if (Boolean.FALSE.equals(isReserved)) {
+            log.warn("Вагон {} уже зарезервирован", wagonId);
+            return false;
+        }
+
+        try {
+            // 2. Обновляем статус в БД - ИСПОЛЬЗУЕМ ENUM!
+            Wagon wagon = wagonRepository.findById(wagonId)
+                    .orElseThrow(() -> new RuntimeException("Вагон не найден"));
+
+            if (wagon.getStatus() != WagonStatus.свободен) {
+                redisTemplate.delete(redisKey);
+                log.warn("Вагон {} не свободен (статус: {})", wagonId, wagon.getStatus());
+                return false;
+            }
+
+            // ИСПРАВЛЕНО: используем enum WagonStatus.забронирован вместо строки
+            wagon.setStatus(WagonStatus.забронирован);
+            wagonRepository.save(wagon);
+
+            // 3. Создаем запись в расписании - тоже используем enum
+            WagonSchedule schedule = new WagonSchedule();
+            schedule.setWagon(wagon);
+            schedule.setOrderId(orderId);
+            schedule.setStatus("зарезервирован"); // это строка, тут нормально
+            schedule.setDepartureStation("ожидает");
+            schedule.setArrivalStation("ожидает");
+            scheduleRepository.save(schedule);
+
+            log.info("Вагон {} успешно зарезервирован для заказа {}", wagonId, orderId);
+            return true;
+
+        } catch (Exception e) {
+            redisTemplate.delete(redisKey);
+            log.error("Ошибка при резервировании вагона: {}", e.getMessage());
+            throw e;
+        }
+    }
+    /**
+     * НОВЫЙ МЕТОД: Освобождение вагона
+     */
+    @Transactional
+    public void releaseWagon(UUID wagonId) {
+        log.info("Освобождение вагона {}", wagonId);
+
+        // 1. Удаляем из Redis
+        String redisKey = WAGON_RESERVATION_KEY + wagonId;
+        redisTemplate.delete(redisKey);
+
+        // 2. Обновляем статус в БД
+        Wagon wagon = wagonRepository.findById(wagonId)
+                .orElseThrow(() -> new RuntimeException("Вагон не найден"));
+
+        wagon.setStatus(WagonStatus.свободен);
+        wagonRepository.save(wagon);
+
+        // 3. Обновляем расписание
+        List<WagonSchedule> schedules = scheduleRepository.findByWagonId(wagonId);
+        for (WagonSchedule schedule : schedules) {
+            if ("зарезервирован".equals(schedule.getStatus())) {
+                schedule.setStatus("отменен");
+                scheduleRepository.save(schedule);
+                break;
+            }
+        }
+
+        log.info("Вагон {} освобожден", wagonId);
     }
 
     /**
-     * Проверка доступности вагона на дату
+     * НОВЫЙ МЕТОД: Проверка, зарезервирован ли вагон
      */
+    private boolean isWagonReserved(UUID wagonId) {
+        String redisKey = WAGON_RESERVATION_KEY + wagonId;
+        Boolean hasKey = redisTemplate.hasKey(redisKey);
+        return Boolean.TRUE.equals(hasKey);
+    }
+
+
+    private OffsetDateTime convertToOffsetDateTime(LocalDateTime localDateTime) {
+        if (localDateTime == null) return null;
+        return localDateTime.atOffset(ZoneOffset.ofHours(3));
+    }
+
     private boolean isWagonAvailableForDates(Wagon wagon, OffsetDateTime requiredDate) {
         if (requiredDate == null) return true;
 
@@ -101,24 +220,17 @@ public class WagonSearchService {
         return conflicts.isEmpty();
     }
 
-    /**
-     * Поиск на соседних станциях
-     */
     private List<Wagon> findWagonsOnNearbyStations(WagonSearchRequest request) {
-        // Ищем все свободные вагоны с нужной грузоподъемностью
         return wagonRepository.findAvailableWagons(
                         request.getDepartureStation(),
                         request.getWeightKg(),
                         request.getVolumeM3() != null ? request.getVolumeM3() : 0
                 ).stream()
-                .filter(w -> !w.getCurrentStation().equals(request.getDepartureStation())) // исключаем те, что уже на станции
+                .filter(w -> !w.getCurrentStation().equals(request.getDepartureStation()))
                 .limit(20)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Формирование ответа для вагона
-     */
     private WagonAvailabilityResponse buildWagonResponse(Wagon wagon, WagonSearchRequest request) {
         int matchPercentage = calculateMatchPercentage(wagon, request);
         BigDecimal estimatedPrice = calculateEstimatedPrice(wagon, request);
@@ -141,15 +253,11 @@ public class WagonSearchService {
                 .build();
     }
 
-    /**
-     * Формирование ответа для вагона с учетом расстояния
-     */
     private WagonAvailabilityResponse buildWagonResponseWithDistance(Wagon wagon, WagonSearchRequest request) {
         int distance = getDistanceBetweenStations(
                 wagon.getCurrentStation(), request.getDepartureStation());
 
         int matchPercentage = calculateMatchPercentage(wagon, request);
-        // Штраф за расстояние (чем дальше, тем меньше процент)
         int distancePenalty = Math.min(30, distance / 10);
         matchPercentage = Math.max(0, matchPercentage - distancePenalty);
 
@@ -165,7 +273,7 @@ public class WagonSearchService {
                 .isAvailable(true)
                 .availabilityStatus(wagon.getStatus().name())
                 .distanceToStation(distance)
-                .estimatedArrivalHours(distance / 50) // 50 км/ч средняя скорость подачи
+                .estimatedArrivalHours(distance / 50)
                 .matchPercentage(matchPercentage)
                 .recommendation(getRecommendation(matchPercentage))
                 .estimatedPrice(estimatedPrice)
@@ -173,37 +281,31 @@ public class WagonSearchService {
                 .build();
     }
 
-    /**
-     * Расчет процента соответствия
-     */
     private int calculateMatchPercentage(Wagon wagon, WagonSearchRequest request) {
         int score = 100;
 
-        // Оценка по весу
         double weightRatio = (double) request.getWeightKg() / wagon.getMaxWeightKg();
         if (weightRatio > 1.0) {
-            return 0; // вагон не подходит по весу
+            return 0;
         } else if (weightRatio > 0.9) {
-            score -= 0; // отлично, почти полная загрузка
+            score -= 0;
         } else if (weightRatio > 0.7) {
-            score -= 5; // хорошая загрузка
+            score -= 5;
         } else if (weightRatio > 0.5) {
-            score -= 15; // средняя загрузка
+            score -= 15;
         } else {
-            score -= 25; // очень маленький груз для такого вагона
+            score -= 25;
         }
 
-        // Оценка по объему (если указан)
         if (request.getVolumeM3() != null && request.getVolumeM3() > 0) {
             double volumeRatio = (double) request.getVolumeM3() / wagon.getMaxVolumeM3();
             if (volumeRatio > 1.0) {
-                return 0; // вагон не подходит по объему
+                return 0;
             } else if (volumeRatio < 0.3) {
-                score -= 10; // очень маленький объем
+                score -= 10;
             }
         }
 
-        // Бонус за точное совпадение типа вагона
         if (request.getPreferredWagonType() != null &&
                 wagon.getWagonType().name().equalsIgnoreCase(request.getPreferredWagonType())) {
             score += 10;
@@ -212,9 +314,6 @@ public class WagonSearchService {
         return Math.min(100, Math.max(0, score));
     }
 
-    /**
-     * Получение рекомендации
-     */
     private String getRecommendation(int percentage) {
         if (percentage >= 90) return "ИДЕАЛЬНО";
         if (percentage >= 75) return "ОТЛИЧНО";
@@ -223,9 +322,6 @@ public class WagonSearchService {
         return "НЕ РЕКОМЕНДУЕТСЯ";
     }
 
-    /**
-     * Расчет примерной цены
-     */
     private BigDecimal calculateEstimatedPrice(Wagon wagon, WagonSearchRequest request) {
         int distance = getDistanceBetweenStations(
                 request.getDepartureStation(), request.getArrivalStation());
@@ -254,17 +350,11 @@ public class WagonSearchService {
         return price;
     }
 
-    /**
-     * Получение расстояния между станциями
-     */
     private int getDistanceBetweenStations(String from, String to) {
         return distanceRepository.findByFromStationAndToStation(from, to)
                 .map(StationDistance::getDistanceKm)
-                .orElseGet(() -> {
-                    // Пробуем обратное направление
-                    return distanceRepository.findByFromStationAndToStation(to, from)
-                            .map(StationDistance::getDistanceKm)
-                            .orElse(1000); // значение по умолчанию
-                });
+                .orElseGet(() -> distanceRepository.findByFromStationAndToStation(to, from)
+                        .map(StationDistance::getDistanceKm)
+                        .orElse(1000));
     }
 }
