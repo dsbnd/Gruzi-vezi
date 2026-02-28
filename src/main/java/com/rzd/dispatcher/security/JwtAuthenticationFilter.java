@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import io.jsonwebtoken.ExpiredJwtException;
+
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -29,7 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-        
+
         final String authHeader = request.getHeader("Authorization");
         final String jwt;
         final String userEmail;
@@ -42,32 +42,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Достаем токен (отрезаем "Bearer ")
         jwt = authHeader.substring(7);
-        try {
-            userEmail = jwtService.extractEmail(jwt);
+        userEmail = jwtService.extractEmail(jwt);
 
-            // Если email есть, а пользователь еще не аутентифицирован
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+        // Если email есть, а пользователь еще не аутентифицирован
+        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-                // Проверяем валидность токена
-                if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails,
-                            null,
-                            userDetails.getAuthorities()
-                    );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    // Сохраняем пользователя в контекст Spring Security
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
+            // Проверяем валидность токена
+            if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                // Сохраняем пользователя в контекст Spring Security
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
-            filterChain.doFilter(request, response);
-        }catch (ExpiredJwtException e) {
-            // ВОТ ОНА МАГИЯ! Ловим протухший токен и отвечаем красивым JSON'ом
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Ставим статус 401
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"status\": 401, \"message\": \"Время действия токена истекло\"}");
-            return; // Прерываем цепочку фильтров, дальше запрос не пускаем!
         }
+        filterChain.doFilter(request, response);
     }
 }
