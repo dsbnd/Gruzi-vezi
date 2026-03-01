@@ -2,19 +2,18 @@ package com.rzd.dispatcher.service;
 
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
+import com.rzd.dispatcher.model.entity.Order;
 import com.rzd.dispatcher.model.entity.Payment;
 import org.springframework.stereotype.Service;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.LocalDate;
 
 @Service
 public class PdfGeneratorService {
-
-    // Укажи точное имя твоего файла шрифта здесь
     private static final String FONT_PATH = "src/main/resources/arial3.ttf";
-    private static final String LOGO_PATH = "resources/logo.png"; // или просто logo.png в ресурсах
 
     public byte[] generateInvoicePdf(Payment payment) throws DocumentException, IOException {
         Document document = new Document(PageSize.A4, 30, 30, 30, 30);
@@ -23,14 +22,12 @@ public class PdfGeneratorService {
 
         document.open();
 
-        // Загрузка шрифта для кириллицы
         BaseFont bf = BaseFont.createFont(FONT_PATH, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
         Font fontTitle = new Font(bf, 14, Font.BOLD);
         Font fontBold = new Font(bf, 9, Font.BOLD);
         Font fontNormal = new Font(bf, 9, Font.NORMAL);
         Font fontSmall = new Font(bf, 7, Font.NORMAL);
 
-        // 1. Логотип и заголовок
         PdfPTable headerTable = new PdfPTable(2);
         headerTable.setWidthPercentage(100);
         headerTable.setWidths(new float[]{1, 4});
@@ -106,18 +103,15 @@ public class PdfGeneratorService {
 
         document.add(mainTable);
 
-        // 6. Итого
         document.add(new Paragraph("\nИтого: " + payment.getAmount() + " руб.", fontBold));
         document.add(new Paragraph("В том числе НДС (20%): " + payment.getAmount().multiply(new java.math.BigDecimal("0.2")).setScale(2, java.math.RoundingMode.HALF_UP) + " руб.", fontNormal));
 
-        // 7. Подписи
+
         document.add(new Paragraph("\n\n"));
         document.add(new Paragraph("Руководитель ____________________ (Харитонова А.Е.)", fontNormal));
         document.add(new Paragraph("\nГлавный бухгалтер ____________________ (Бондаренко Д.А.)", fontNormal));
-        document.add(new Paragraph("\nМ.П.", fontNormal));
 
         try {
-            // Способ через ClassPathResource (самый надежный в Spring)
             byte[] signABytes = new ClassPathResource("signA.png").getInputStream().readAllBytes();
             Image sigA = Image.getInstance(signABytes);
             sigA.scaleToFit(100, 50);
@@ -157,6 +151,104 @@ public class PdfGeneratorService {
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         cell.setBackgroundColor(java.awt.Color.LIGHT_GRAY);
+        table.addCell(cell);
+    }
+
+    public byte[] generateContractPdf(Order order) throws DocumentException, IOException {
+        Document document = new Document(PageSize.A4, 50, 40, 50, 50); // Левое поле больше для подшивки
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter.getInstance(document, out);
+
+        document.open();
+
+        // Загрузка шрифта (используем тот же метод через ClassPathResource, что и в счете)
+        byte[] fontData = new ClassPathResource("a3arialrusnormal.ttf").getInputStream().readAllBytes();
+        BaseFont bf = BaseFont.createFont("a3arialrusnormal.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontData, null);
+
+        Font fontTitle = new Font(bf, 14, Font.BOLD);
+        Font fontSection = new Font(bf, 11, Font.BOLD);
+        Font fontNormal = new Font(bf, 10, Font.NORMAL);
+
+        // 1. Заголовок
+        Paragraph title = new Paragraph("ДОГОВОР ОРГАНИЗАЦИИ ПЕРЕВОЗКИ ГРУЗА № " +
+                order.getId().toString().substring(0, 8).toUpperCase(), fontTitle);
+        title.setAlignment(Element.ALIGN_CENTER);
+        title.setSpacingAfter(20);
+        document.add(title);
+
+        // 2. Место и дата
+        PdfPTable datePlace = new PdfPTable(2);
+        datePlace.setWidthPercentage(100);
+        addBorderlessCell(datePlace, "г. Москва", fontNormal, Element.ALIGN_LEFT);
+        addBorderlessCell(datePlace, LocalDate.now().toString(), fontNormal, Element.ALIGN_RIGHT);
+        document.add(datePlace);
+        document.add(new Paragraph("\n"));
+
+        // 3. Преамбула
+        String preamble = String.format(
+                "ОАО «РЖД», именуемое в дальнейшем «Перевозчик», в лице начальника службы движения, с одной стороны, и " +
+                        "компания %s (ИНН %s), именуемая в дальнейшем «Грузоотправитель», в лице руководителя, действующего на основании Устава, " +
+                        "совместно именуемые «Стороны», заключили настоящий Договор о нижеследующем:",
+                order.getUser().getCompanyName(), order.getUser().getInn()
+        );
+        Paragraph pInfo = new Paragraph(preamble, fontNormal);
+        pInfo.setAlignment(Element.ALIGN_JUSTIFIED);
+        document.add(pInfo);
+
+        // 4. Разделы договора
+        addSection(document, "1. ПРЕДМЕТ ДОГОВОРА", fontSection);
+        addText(document, String.format(
+                "1.1. Перевозчик обязуется осуществить перевозку груза (%s) весом %d кг по маршруту: ст. %s — ст. %s.",
+                order.getCargo().getCargoType(), order.getCargo().getWeightKg(),
+                order.getDepartureStation(), order.getDestinationStation()
+        ), fontNormal);
+        addText(document, "1.2. Грузоотправитель обязуется оплатить услуги Перевозчика согласно установленным тарифам.", fontNormal);
+
+        addSection(document, "2. ОБЯЗАННОСТИ СТОРОН", fontSection);
+        addText(document, "2.1. Перевозчик обязан подать исправный подвижной состав (тип: " + order.getRequestedWagonType() + ") под погрузку в установленный срок.", fontNormal);
+        addText(document, "2.2. Грузоотправитель обязан обеспечить правильность заполнения перевозочных документов и соответствие упаковки груза (" + order.getCargo().getPackagingType() + ") требованиям безопасности.", fontNormal);
+
+        addSection(document, "3. СТОИМОСТЬ И ПОРЯДОК РАСЧЕТОВ", fontSection);
+        addText(document, "3.1. Стоимость перевозки определяется согласно расчету и составляет: " + order.getTotalPrice() + " руб.", fontNormal);
+        addText(document, "3.2. Оплата производится на условиях 100% предоплаты.", fontNormal);
+
+        // 5. Реквизиты и подписи (Две колонки)
+        document.add(new Paragraph("\n\n4. РЕКВИЗИТЫ СТОРОН\n\n", fontSection));
+        PdfPTable footer = new PdfPTable(2);
+        footer.setWidthPercentage(100);
+
+        // Колонка РЖД
+        String rzdInfo = "ПЕРЕВОЗЧИК:\nОАО «РЖД»\nИНН 7708503727\nг. Москва, ул. Новая Басманная, 2\n\n\n________________ /Белозёров О.В./";
+        addBorderlessCell(footer, rzdInfo, fontNormal, Element.ALIGN_LEFT);
+
+        // Колонка Клиента
+        String clientInfo = String.format("ГРУЗООТПРАВИТЕЛЬ:\n%s\nИНН %s\n\n\n\n________________ / ____________ /",
+                order.getUser().getCompanyName(), order.getUser().getInn());
+        addBorderlessCell(footer, clientInfo, fontNormal, Element.ALIGN_LEFT);
+
+        document.add(footer);
+
+        document.close();
+        return out.toByteArray();
+    }
+
+    // Вспомогательные методы для чистоты кода
+    private void addSection(Document doc, String title, Font font) throws DocumentException {
+        Paragraph p = new Paragraph("\n" + title, font);
+        p.setSpacingAfter(5);
+        doc.add(p);
+    }
+
+    private void addText(Document doc, String text, Font font) throws DocumentException {
+        Paragraph p = new Paragraph(text, font);
+        p.setAlignment(Element.ALIGN_JUSTIFIED);
+        doc.add(p);
+    }
+
+    private void addBorderlessCell(PdfPTable table, String text, Font font, int align) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.setBorder(Rectangle.NO_BORDER);
+        cell.setHorizontalAlignment(align);
         table.addCell(cell);
     }
 }

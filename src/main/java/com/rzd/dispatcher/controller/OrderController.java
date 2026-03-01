@@ -56,5 +56,15 @@ public class OrderController {
         return ResponseEntity.ok(responseList);
     }
 
+    @GetMapping("/{orderId}/contract")
+    public ResponseEntity<byte[]> downloadContract(@PathVariable UUID orderId) {
+        byte[] pdfContent = orderService.generateOrderContract(orderId);
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"contract_" + orderId + ".pdf\"")
+                .body(pdfContent);
+    }
+
 
 }
