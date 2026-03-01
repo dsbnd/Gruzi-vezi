@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/dispatcher/pricing/calculate",
                                 "/api/dispatcher/pricing/estimate",
+                                "/api/stations/**",
                                 "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
