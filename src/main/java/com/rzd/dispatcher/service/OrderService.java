@@ -21,9 +21,11 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final OrderValidator orderValidator;
 
     @Transactional
     public UUID createDraftOrder(CreateOrderRequest request, String userEmail) {
+        orderValidator.validate(request);
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
 
