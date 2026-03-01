@@ -26,8 +26,15 @@ public class OrderService {
     private final UserRepository userRepository;
     private final WagonRepository wagonRepository;
 
+    private final OrderValidator orderValidator;
+    private final PdfGeneratorService pdfGeneratorService;
+
+
+
+
     @Transactional
     public UUID createDraftOrder(CreateOrderRequest request, String userEmail) {
+        orderValidator.validate(request);
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
 
@@ -51,6 +58,7 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         return savedOrder.getId();
     }
+
     @Transactional
     public void updateOrderStatus(UUID orderId, OrderStatus newStatus) {
         Order order = orderRepository.findById(orderId)
@@ -61,6 +69,23 @@ public class OrderService {
 
         log.info("Статус заказа {} обновлен на: {}", orderId, newStatus);
     }
+
+
+
+    @Transactional(readOnly = true)
+    public byte[] generateOrderContract(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        try {
+            return pdfGeneratorService.generateContractPdf(order);
+        } catch (Exception e) {
+            log.error("Ошибка при создании договора для заказа {}", orderId, e);
+            throw new RuntimeException("Ошибка генерации PDF");
+        }
+    }
+
+
     @Transactional
     public Order confirmWagonSelection(UUID orderId, UUID wagonId, BigDecimal totalPrice, String userEmail) {
         Order order = orderRepository.findById(orderId)
@@ -81,5 +106,6 @@ public class OrderService {
         order.setStatus(OrderStatus.ожидает_оплаты);
 
         return orderRepository.save(order);
+
     }
 }

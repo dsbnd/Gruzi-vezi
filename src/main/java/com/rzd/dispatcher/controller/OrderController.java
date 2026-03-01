@@ -76,6 +76,21 @@ public class OrderController {
         return ResponseEntity.ok(responseList);
     }
 
+
+
+    @GetMapping("/{orderId}/contract")
+    public ResponseEntity<byte[]> downloadContract(@PathVariable UUID orderId) {
+        byte[] pdfContent = orderService.generateOrderContract(orderId);
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"contract_" + orderId + ".pdf\"")
+                .body(pdfContent);
+    }
+
+
+
+
     @PostMapping("/{orderId}/confirm-wagon")
     public ResponseEntity<OrderResponse> confirmWagon(
             @PathVariable UUID orderId,
@@ -87,4 +102,5 @@ public class OrderController {
         Order updatedOrder = orderService.confirmWagonSelection(orderId, wagonId, totalPrice, userEmail);
         return ResponseEntity.ok(OrderResponse.fromOrder(updatedOrder));
     }
+
 }
