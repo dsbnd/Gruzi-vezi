@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -39,7 +40,26 @@ public class OrderController {
                 "message", "Заявка (черновик) успешно создана"
         ));
     }
+    @GetMapping("/{orderId}")
+    public ResponseEntity<OrderResponse> getOrderById(
+            @PathVariable UUID orderId,
+            Authentication authentication
+    ) {
+        // Получаем email текущего пользователя
+        String userEmail = authentication.getName();
 
+        // Ищем заказ
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
+
+        // Проверяем, что заказ принадлежит этому пользователю (безопасность)
+        if (!order.getUser().getEmail().equals(userEmail)) {
+            throw new RuntimeException("У вас нет доступа к этому заказу");
+        }
+
+        // Преобразуем в DTO и возвращаем
+        return ResponseEntity.ok(OrderResponse.fromOrder(order));
+    }
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getMyOrders(Authentication authentication) {
         // Достаем email из токена
@@ -56,5 +76,15 @@ public class OrderController {
         return ResponseEntity.ok(responseList);
     }
 
-
+    @PostMapping("/{orderId}/confirm-wagon")
+    public ResponseEntity<OrderResponse> confirmWagon(
+            @PathVariable UUID orderId,
+            @RequestParam UUID wagonId,
+            @RequestParam BigDecimal totalPrice,
+            Authentication authentication
+    ) {
+        String userEmail = authentication.getName();
+        Order updatedOrder = orderService.confirmWagonSelection(orderId, wagonId, totalPrice, userEmail);
+        return ResponseEntity.ok(OrderResponse.fromOrder(updatedOrder));
+    }
 }

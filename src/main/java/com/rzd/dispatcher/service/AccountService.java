@@ -2,13 +2,15 @@ package com.rzd.dispatcher.service;
 
 import com.rzd.dispatcher.model.entity.CompanyAccount;
 import com.rzd.dispatcher.repository.CompanyAccountRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -16,94 +18,161 @@ import java.time.format.DateTimeFormatter;
 public class AccountService {
 
     private final CompanyAccountRepository accountRepository;
-
-    // ИНН РЖД (константа)
-    private static final String RZD_INN = "7708503727";
-
+    @PersistenceContext
+    private EntityManager entityManager;
     /**
-     * Создание счета при регистрации компании
+     * Создание нового счета для компании
+     */
+    /**
+     * Создание нового счета для компании (через интерфейс)
      */
     @Transactional
-    public CompanyAccount createAccountForCompany(String inn, String companyName) {
+    public CompanyAccount createAccount(String inn, String companyName,
+                                        String bik, String bankName,
+                                        boolean isMain) {
         log.info("Создание счета для компании: {} (ИНН: {})", companyName, inn);
 
-        // Генерируем номер счета на основе ИНН
-        String accountNumber = generateAccountNumber(inn);
+        // Генерируем уникальный номер счета
+        String accountNumber = generateUniqueAccountNumber();
 
         CompanyAccount account = new CompanyAccount();
         account.setInn(inn);
         account.setCompanyName(companyName);
         account.setAccountNumber(accountNumber);
-        account.setBalance(new BigDecimal("500000.00")); // Стартовый баланс 500к
-        account.setBik("044525225");
-        account.setBankName("ПАО СБЕРБАНК");
+        account.setBalance(new BigDecimal("50000000.00")); // ← 50 МИЛЛИОНОВ РУБЛЕЙ
+        account.setBik(bik);
+        account.setBankName(bankName);
+        account.setIsMain(isMain);
+        account.setIsRzdAccount(false);
 
-        return accountRepository.save(account);
-    }
-
-    /**
-     * Перевод денег (списание у плательщика + зачисление РЖД)
-     */
-    @Transactional
-    public TransferResult transferMoney(String payerInn, BigDecimal amount) {
-        log.info("💰 НАЧАЛО ПЕРЕВОДА: Плательщик ИНН={}, Сумма={}", payerInn, amount);
-
-        // Получаем счета с блокировкой
-        CompanyAccount payerAccount = accountRepository.findByInnForUpdate(payerInn)
-                .orElseThrow(() -> new RuntimeException("Счет плательщика не найден"));
-
-        CompanyAccount rzdAccount = accountRepository.findByInnForUpdate(RZD_INN)
-                .orElseThrow(() -> new RuntimeException("Счет РЖД не найден"));
-
-        // Сохраняем балансы ДО
-        BigDecimal beforePayer = payerAccount.getBalance();
-        BigDecimal beforeRzd = rzdAccount.getBalance();
-
-        log.info("📊 БАЛАНС ДО ОПЕРАЦИИ:");
-        log.info("   Плательщик ({}): {} руб", payerAccount.getCompanyName(), beforePayer);
-        log.info("   РЖД: {} руб", beforeRzd);
-        log.info("   Сумма перевода: {} руб", amount);
-
-        // Проверка достаточности средств
-        if (payerAccount.getBalance().compareTo(amount) < 0) {
-            log.error("❌ НЕДОСТАТОЧНО СРЕДСТВ!");
-            return TransferResult.failed(payerAccount, rzdAccount, amount,
-                    "Недостаточно средств. Доступно: " + payerAccount.getBalance());
+        // Если это основной счет, сбрасываем флаг у других счетов этого ИНН
+        if (isMain) {
+            accountRepository.findAllByInnOrderByIsMainDescCreatedAtDesc(inn)
+                    .forEach(a -> {
+                        a.setIsMain(false);
+                        accountRepository.save(a);
+                    });
         }
 
-        // Выполняем перевод
-        payerAccount.setBalance(payerAccount.getBalance().subtract(amount));
-        rzdAccount.setBalance(rzdAccount.getBalance().add(amount));
+        CompanyAccount savedAccount = accountRepository.save(account);
+        log.info("Счет создан: {} для ИНН: {} с балансом {} руб",
+                savedAccount.getAccountNumber(), inn, savedAccount.getBalance());
 
-        accountRepository.save(payerAccount);
-        accountRepository.save(rzdAccount);
-
-        log.info("✅ ПЕРЕВОД ВЫПОЛНЕН УСПЕШНО!");
-        log.info("📊 БАЛАНС ПОСЛЕ ОПЕРАЦИИ:");
-        log.info("   Плательщик ({}): {} руб (было: {}, списано: {})",
-                payerAccount.getCompanyName(), payerAccount.getBalance(), beforePayer, amount);
-        log.info("   РЖД: {} руб (было: {}, зачислено: {})",
-                rzdAccount.getBalance(), beforeRzd, amount);
-
-        return TransferResult.success(payerAccount, rzdAccount, amount, beforePayer, beforeRzd);
+        return savedAccount;
     }
 
     /**
-     * Получить баланс компании по ИНН
+     * Получить все счета компании по ИНН
      */
     @Transactional(readOnly = true)
-    public BigDecimal getBalance(String inn) {
-        return accountRepository.findByInn(inn)
-                .map(CompanyAccount::getBalance)
-                .orElseThrow(() -> new RuntimeException("Счет не найден"));
+    public List<CompanyAccount> getAccountsByInn(String inn) {
+        return accountRepository.findAllByInnOrderByIsMainDescCreatedAtDesc(inn);
     }
 
     /**
-     * Генерация номера счета (упрощенно)
+     * Получить счет по номеру
      */
-    private String generateAccountNumber(String inn) {
-        return "40702810" + inn.substring(0, 8) + String.format("%04d",
-                (int)(Math.random() * 10000));
+    @Transactional(readOnly = true)
+    public CompanyAccount getAccountByNumber(String accountNumber) {
+        return accountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new RuntimeException("Счет не найден: " + accountNumber));
+    }
+
+
+
+    /**
+     * Получить баланс счета
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal getBalance(String accountNumber) {
+        return accountRepository.findByAccountNumber(accountNumber)
+                .map(CompanyAccount::getBalance)
+                .orElseThrow(() -> new RuntimeException("Счет не найден: " + accountNumber));
+    }
+
+
+@Transactional
+public TransferResult transferMoney(String fromAccountNumber, String toAccountNumber,
+                                    BigDecimal amount, String description) {
+    log.info("========== НАЧАЛО ПЕРЕВОДА ==========");
+    log.info("Счет отправителя: {}", fromAccountNumber);
+    log.info("Счет получателя: {}", toAccountNumber);
+    log.info("Сумма перевода: {} руб", amount);
+
+    // Получаем счета с блокировкой
+    CompanyAccount fromAccount = accountRepository.findByAccountNumberForUpdate(fromAccountNumber)
+            .orElseThrow(() -> new RuntimeException("Счет отправителя не найден: " + fromAccountNumber));
+    CompanyAccount toAccount = accountRepository.findByAccountNumberForUpdate(toAccountNumber)
+            .orElseThrow(() -> new RuntimeException("Счет получателя не найден: " + toAccountNumber));
+
+    BigDecimal beforeFrom = fromAccount.getBalance();
+    BigDecimal beforeTo = toAccount.getBalance();
+
+    log.info("---------- БАЛАНС ДО ОПЕРАЦИИ ----------");
+    log.info("Отправитель ({}): {} руб", fromAccount.getCompanyName(), beforeFrom);
+    log.info("Получатель ({}): {} руб", toAccount.getCompanyName(), beforeTo);
+    log.info("----------------------------------------");
+
+    if (beforeFrom.compareTo(amount) < 0) {
+        String errorMsg = String.format("Недостаточно средств. Доступно: %.2f руб", beforeFrom);
+        log.error("ОШИБКА: {}", errorMsg);
+        return TransferResult.failed(fromAccount, toAccount, amount, errorMsg, description);
+    }
+
+    // ВЫПОЛНЯЕМ ПЕРЕВОД
+    int withdrawn = accountRepository.withdraw(fromAccountNumber, amount);
+    if (withdrawn == 0) {
+        String errorMsg = "Не удалось списать средства";
+        log.error("ОШИБКА: {}", errorMsg);
+        return TransferResult.failed(fromAccount, toAccount, amount, errorMsg, description);
+    }
+
+    int deposited = accountRepository.deposit(toAccountNumber, amount);
+    if (deposited == 0) {
+        accountRepository.deposit(fromAccountNumber, amount);
+        throw new RuntimeException("Ошибка зачисления");
+    }
+
+    // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ДАННЫЕ ИЗ БД
+    entityManager.flush();
+    entityManager.clear();
+
+    // ЗАНОВО ПОЛУЧАЕМ АКТУАЛЬНЫЕ ДАННЫЕ
+    CompanyAccount updatedFromAccount = accountRepository.findByAccountNumber(fromAccountNumber)
+            .orElseThrow(() -> new RuntimeException("Счет отправителя не найден"));
+    CompanyAccount updatedToAccount = accountRepository.findByAccountNumber(toAccountNumber)
+            .orElseThrow(() -> new RuntimeException("Счет получателя не найден"));
+
+    log.info("---------- БАЛАНС ПОСЛЕ ОПЕРАЦИИ ----------");
+    log.info("Отправитель ({}):", updatedFromAccount.getCompanyName());
+    log.info("  - Было: {} руб", beforeFrom);
+    log.info("  - Списано: {} руб", amount);
+    log.info("  - Стало: {} руб ", updatedFromAccount.getBalance());
+    log.info("  - ИТОГ: {} руб ", updatedFromAccount.getBalance());
+    log.info("");
+    log.info("Получатель ({}):", updatedToAccount.getCompanyName());
+    log.info("  - Было: {} руб", beforeTo);
+    log.info("  - Зачислено: {} руб", amount);
+    log.info("  - Стало: {} руб ", updatedToAccount.getBalance());
+    log.info("  - ИТОГ: {} руб ", updatedToAccount.getBalance());
+    log.info("-------------------------------------------");
+    log.info("========== ПЕРЕВОД ЗАВЕРШЕН УСПЕШНО ==========");
+
+    return TransferResult.success(updatedFromAccount, updatedToAccount, amount,
+            beforeFrom, beforeTo, description);
+}
+    /**
+     * Генерация уникального номера счета
+     */
+    private String generateUniqueAccountNumber() {
+        String accountNumber;
+        do {
+            // Формат: 40702810 + 8 случайных цифр + 4 контрольные цифры
+            String randomPart = String.format("%012d", (long)(Math.random() * 1000000000000L));
+            accountNumber = "40702810" + randomPart;
+        } while (accountRepository.existsByAccountNumber(accountNumber));
+
+        return accountNumber;
     }
 
     /**
@@ -111,52 +180,67 @@ public class AccountService {
      */
     @lombok.Data
     @lombok.AllArgsConstructor
+    @lombok.Builder
     public static class TransferResult {
         private boolean success;
         private String message;
-        private String payerInn;
-        private String payerName;
-        private BigDecimal payerBalanceBefore;
-        private BigDecimal payerBalanceAfter;
-        private BigDecimal rzdBalanceBefore;
-        private BigDecimal rzdBalanceAfter;
+        private String fromAccountNumber;
+        private String fromInn;
+        private String fromName;
+        private String toAccountNumber;
+        private String toInn;
+        private String toName;
+        private BigDecimal fromBalanceBefore;
+        private BigDecimal fromBalanceAfter;
+        private BigDecimal toBalanceBefore;
+        private BigDecimal toBalanceAfter;
         private BigDecimal amount;
+        private String description;
 
-        public static TransferResult success(CompanyAccount payer, CompanyAccount rzd,
-                                             BigDecimal amount, BigDecimal beforePayer, BigDecimal beforeRzd) {
+        public static TransferResult success(CompanyAccount from, CompanyAccount to,
+                                             BigDecimal amount,
+                                             BigDecimal beforeFrom, BigDecimal beforeTo,
+                                             String description) {
             return new TransferResult(true, "Перевод выполнен успешно",
-                    payer.getInn(), payer.getCompanyName(),
-                    beforePayer, payer.getBalance(),
-                    beforeRzd, rzd.getBalance(), amount);
+                    from.getAccountNumber(), from.getInn(), from.getCompanyName(),
+                    to.getAccountNumber(), to.getInn(), to.getCompanyName(),
+                    beforeFrom, from.getBalance(),
+                    beforeTo, to.getBalance(),
+                    amount, description);
         }
 
-        public static TransferResult failed(CompanyAccount payer, CompanyAccount rzd,
-                                            BigDecimal amount, String error) {
+        public static TransferResult failed(CompanyAccount from, CompanyAccount to,
+                                            BigDecimal amount, String error,
+                                            String description) {
             return new TransferResult(false, error,
-                    payer.getInn(), payer.getCompanyName(),
-                    payer.getBalance(), payer.getBalance(),
-                    rzd.getBalance(), rzd.getBalance(), amount);
+                    from.getAccountNumber(), from.getInn(), from.getCompanyName(),
+                    to.getAccountNumber(), to.getInn(), to.getCompanyName(),
+                    from.getBalance(), from.getBalance(),
+                    to.getBalance(), to.getBalance(),
+                    amount, description);
         }
 
         public String formatReport() {
             StringBuilder sb = new StringBuilder();
             sb.append("\n");
-            sb.append("══════════════════════════════════════════════════════════════\n");
-            sb.append(success ? "✅ ПЕРЕВОД ВЫПОЛНЕН УСПЕШНО\n" : "❌ ОШИБКА ПЕРЕВОДА\n");
-            sb.append("══════════════════════════════════════════════════════════════\n");
-            sb.append(String.format("Плательщик: %s (ИНН: %s)\n", payerName, payerInn));
-            sb.append(String.format("Сумма: %,8.2f руб\n", amount));
+            sb.append("==================================================\n");
+            sb.append(success ? "Перевод выполнен успешно\n" : "Ошибка перевода\n");
+            sb.append("==================================================\n");
+            sb.append(String.format("Со счета: %s (%s, ИНН: %s)\n", fromAccountNumber, fromName, fromInn));
+            sb.append(String.format("На счет: %s (%s, ИНН: %s)\n", toAccountNumber, toName, toInn));
+            sb.append(String.format("Сумма: %.2f руб\n", amount));
+            sb.append(String.format("Назначение: %s\n", description));
 
             if (success) {
-                sb.append("\n📊 ДВИЖЕНИЕ ДЕНЕГ:\n");
-                sb.append(String.format("   Плательщик: %,8.2f руб → %,8.2f руб (списано: %,8.2f)\n",
-                        payerBalanceBefore, payerBalanceAfter, amount));
-                sb.append(String.format("   РЖД:        %,8.2f руб → %,8.2f руб (зачислено: %,8.2f)\n",
-                        rzdBalanceBefore, rzdBalanceAfter, amount));
+                sb.append("\nДвижение денег:\n");
+                sb.append(String.format("  Отправитель: %.2f руб -> %.2f руб (списано: %.2f)\n",
+                        fromBalanceBefore, fromBalanceAfter, amount));
+                sb.append(String.format("  Получатель:  %.2f руб -> %.2f руб (зачислено: %.2f)\n",
+                        toBalanceBefore, toBalanceAfter, amount));
             } else {
-                sb.append("\n❌ Причина: ").append(message);
+                sb.append("\nПричина: ").append(message);
             }
-            sb.append("══════════════════════════════════════════════════════════════\n");
+            sb.append("==================================================\n");
             return sb.toString();
         }
     }
