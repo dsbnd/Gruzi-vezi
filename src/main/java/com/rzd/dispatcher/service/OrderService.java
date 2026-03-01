@@ -4,14 +4,17 @@ import com.rzd.dispatcher.model.dto.request.CreateOrderRequest;
 import com.rzd.dispatcher.model.entity.Cargo;
 import com.rzd.dispatcher.model.entity.Order;
 import com.rzd.dispatcher.model.entity.User;
+import com.rzd.dispatcher.model.entity.Wagon;
 import com.rzd.dispatcher.model.enums.OrderStatus;
 import com.rzd.dispatcher.repository.OrderRepository;
 import com.rzd.dispatcher.repository.UserRepository;
+import com.rzd.dispatcher.repository.WagonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -21,8 +24,12 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+
     private final OrderValidator orderValidator;
     private final PdfGeneratorService pdfGeneratorService;
+
+    private final WagonRepository wagonRepository;
+
 
     @Transactional
     public UUID createDraftOrder(CreateOrderRequest request, String userEmail) {
@@ -50,6 +57,7 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         return savedOrder.getId();
     }
+
     @Transactional
     public void updateOrderStatus(UUID orderId, OrderStatus newStatus) {
         Order order = orderRepository.findById(orderId)
@@ -60,6 +68,7 @@ public class OrderService {
 
         log.info("Статус заказа {} обновлен на: {}", orderId, newStatus);
     }
+
 
     @Transactional(readOnly = true)
     public byte[] generateOrderContract(UUID orderId) {
@@ -72,5 +81,28 @@ public class OrderService {
             log.error("Ошибка при создании договора для заказа {}", orderId, e);
             throw new RuntimeException("Ошибка генерации PDF");
         }
+    }
+
+    @Transactional
+    public Order confirmWagonSelection(UUID orderId, UUID wagonId, BigDecimal totalPrice, String userEmail) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден"));
+
+        // Проверка принадлежности
+        if (!order.getUser().getEmail().equals(userEmail)) {
+            throw new RuntimeException("Нет доступа к заказу");
+        }
+
+        // Находим вагон по ID
+        Wagon wagon = wagonRepository.findById(wagonId)
+                .orElseThrow(() -> new RuntimeException("Вагон не найден"));
+
+        // Устанавливаем объект вагона, а не ID
+        order.setWagon(wagon);                    // ← ВОТ ТАК ПРАВИЛЬНО!
+        order.setTotalPrice(totalPrice);
+        order.setStatus(OrderStatus.ожидает_оплаты);
+
+        return orderRepository.save(order);
+
     }
 }

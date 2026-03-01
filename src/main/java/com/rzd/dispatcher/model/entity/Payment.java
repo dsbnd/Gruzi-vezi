@@ -65,6 +65,10 @@ public class Payment {
     @Column(name = "payment_date")
     private OffsetDateTime paymentDate;
 
+    // ДОБАВЛЯЕМ поле metadata
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    private String metadata;  // Для хранения доп. информации о транзакции
+
     // Системные поля
     @Column(name = "created_at")
     private OffsetDateTime createdAt;

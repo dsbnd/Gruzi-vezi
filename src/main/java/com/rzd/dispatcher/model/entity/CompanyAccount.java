@@ -9,7 +9,8 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "company_accounts")
+@Table(name = "company_accounts",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"inn", "account_number"}))
 @Data
 public class CompanyAccount {
 
@@ -18,8 +19,8 @@ public class CompanyAccount {
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
     private UUID id;
 
-    @Column(unique = true, nullable = false, length = 12)
-    private String inn;
+    @Column(nullable = false, length = 12)
+    private String inn;  // Один ИНН может иметь много счетов
 
     @Column(name = "company_name", nullable = false)
     private String companyName;
@@ -35,6 +36,12 @@ public class CompanyAccount {
 
     @Column(name = "bank_name", nullable = false)
     private String bankName;
+
+    @Column(name = "is_main")
+    private Boolean isMain = false;  // Основной счет для ИНН
+
+    @Column(name = "is_rzd_account")
+    private Boolean isRzdAccount = false;  // Флаг, что это счет РЖД
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
