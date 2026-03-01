@@ -3,6 +3,7 @@ package com.rzd.dispatcher.service;
 import com.rzd.dispatcher.model.dto.request.WagonSearchRequest;
 import com.rzd.dispatcher.model.dto.response.WagonAvailabilityResponse;
 import com.rzd.dispatcher.model.entity.*;
+import com.rzd.dispatcher.model.enums.OrderStatus;
 import com.rzd.dispatcher.model.enums.WagonStatus;
 import com.rzd.dispatcher.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +29,9 @@ public class WagonSearchService {
     private final WagonRepository wagonRepository;
     private final WagonScheduleRepository scheduleRepository;
     private final WagonTariffRepository tariffRepository;
+    private final OrderService orderService;
     private final StationDistanceRepository distanceRepository;
-    private final RedisTemplate<String, String> redisTemplate; // Добавляем Redis
+    private final RedisTemplate<String, String> redisTemplate;
 
     private static final String WAGON_RESERVATION_KEY = "wagon:reserved:";
 
@@ -66,14 +68,14 @@ public class WagonSearchService {
                 log.info("  Тип вагона: {}, ищем: {}",
                         wagon.getWagonType().name(), request.getPreferredWagonType());
                 if (!wagon.getWagonType().name().equalsIgnoreCase(request.getPreferredWagonType())) {
-                    log.info("  ❌ Не подходит по типу");
+                    log.info(" Не подходит по типу");
                     continue;
                 }
             }
 
             // Проверка резервации в Redis
             if (isWagonReserved(wagon.getId())) {
-                log.info("  ❌ Вагон зарезервирован в Redis");
+                log.info(" Вагон зарезервирован в Redis");
                 continue;
             }
 
@@ -82,11 +84,11 @@ public class WagonSearchService {
             log.info("  Проверка доступности на дату: {}", requiredDate);
 
             if (isWagonAvailableForDates(wagon, requiredDate)) {
-                log.info("  ✅ Вагон доступен");
+                log.info("  Вагон доступен");
                 WagonAvailabilityResponse response = buildWagonResponse(wagon, request);
                 result.add(response);
             } else {
-                log.info("  ❌ Вагон не доступен по датам (есть конфликты в расписании)");
+                log.info("  Вагон не доступен по датам (есть конфликты в расписании)");
             }
         }
 
@@ -152,7 +154,7 @@ public class WagonSearchService {
             schedule.setDepartureStation("ожидает");
             schedule.setArrivalStation("ожидает");
             scheduleRepository.save(schedule);
-
+            orderService.updateOrderStatus(orderId, OrderStatus.поиск_вагона);
             log.info("Вагон {} успешно зарезервирован для заказа {}", wagonId, orderId);
             return true;
 
