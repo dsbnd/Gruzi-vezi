@@ -1,6 +1,9 @@
 package com.rzd.dispatcher.controller;
 
 import com.rzd.dispatcher.model.dto.request.CreateOrderRequest;
+import com.rzd.dispatcher.model.dto.response.OrderResponse;
+import com.rzd.dispatcher.model.entity.Order;
+import com.rzd.dispatcher.repository.OrderRepository;
 import com.rzd.dispatcher.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -18,6 +22,7 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderRepository orderRepository;
 
     @PostMapping
     public ResponseEntity<?> createOrder(
@@ -34,4 +39,22 @@ public class OrderController {
                 "message", "Заявка (черновик) успешно создана"
         ));
     }
+
+    @GetMapping
+    public ResponseEntity<List<OrderResponse>> getMyOrders(Authentication authentication) {
+        // Достаем email из токена
+        String email = authentication.getName();
+
+        // Достаем из БД все заявки этого пользователя
+        List<Order> userOrders = orderRepository.findByUser_Email(email);
+
+        // Превращаем их в DTO, используя ТВОЙ готовый метод fromOrder!
+        List<OrderResponse> responseList = userOrders.stream()
+                .map(OrderResponse::fromOrder)
+                .toList();
+
+        return ResponseEntity.ok(responseList);
+    }
+
+
 }

@@ -18,7 +18,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     // Поиск по пользователю
     List<Order> findByUserId(UUID userId);
-
+    List<Order> findByUser_Email(String email);
     List<Order> findByUserIdAndStatus(UUID userId, OrderStatus status);
 
     // Поиск по статусу
