@@ -31,13 +31,18 @@ public class AuthService {
             throw new RuntimeException("Пользователь с таким email уже зарегистрирован!");
         }
 
-        // Создаем нового пользователя
+        String innStr = String.valueOf(request.getInn());
+        if (innStr.length() != 10 && innStr.length() != 12) {
+            throw new RuntimeException("ИНН должен содержать 10 или 12 цифр!");
+        }
+
         var user = new User();
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setCompanyName(request.getCompanyName());
+
         user.setInn(request.getInn());
-        user.setRole(Role.USER); // По умолчанию даем роль USER
+        user.setRole(Role.USER);
 
         userRepository.save(user);
 
