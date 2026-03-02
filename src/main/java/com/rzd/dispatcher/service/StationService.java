@@ -12,13 +12,13 @@ public class StationService {
     @Autowired
     private StationRepository stationRepository;
 
-    public List<Map<String, Object>> searchStations(String query) {
+    public List<Map<String, Object>> searchStationsWithFreeWagons(String query) {
         // Валидация входных данных
         if (query == null || query.trim().length() < 2) {
             return List.of();
         }
 
-        // Поиск станций
-        return stationRepository.findStationsByName(query.trim());
+        // Поиск станций где есть свободные вагоны
+        return stationRepository.findStationsWithFreeWagons(query.trim());
     }
 }

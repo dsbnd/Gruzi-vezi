@@ -14,8 +14,8 @@ public class StationController {
     @Autowired
     private StationService stationService;
 
-    @GetMapping("/search")
-    public List<Map<String, Object>> searchStations(@RequestParam String query) {
-        return stationService.searchStations(query);
+    @GetMapping("/search-free")
+    public List<Map<String, Object>> searchStationsWithFreeWagons(@RequestParam String query) {
+        return stationService.searchStationsWithFreeWagons(query);
     }
 }

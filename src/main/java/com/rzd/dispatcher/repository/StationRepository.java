@@ -12,19 +12,12 @@ public class StationRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    public List<Map<String, Object>> findStationsByName(String query) {
-        String sql = "SELECT DISTINCT name FROM (" +
-                "SELECT current_station as name FROM wagons " +  // ← ДОБАВИЛИ ЭТУ СТРОКУ
-                "UNION " +
-                "SELECT departure_station as name FROM wagon_schedule " +
-                "UNION " +
-                "SELECT arrival_station FROM wagon_schedule " +
-                "UNION " +
-                "SELECT from_station FROM station_distances " +
-                "UNION " +
-                "SELECT to_station FROM station_distances" +
-                ") all_stations " +
-                "WHERE LOWER(name) LIKE LOWER(?) LIMIT 10";
+    public List<Map<String, Object>> findStationsWithFreeWagons(String query) {
+        String sql = "SELECT DISTINCT current_station as name " +
+                "FROM wagons " +
+                "WHERE LOWER(current_station) LIKE LOWER(?) " +
+                "AND status = 'свободен' " +
+                "LIMIT 10";
 
         return jdbcTemplate.queryForList(sql, "%" + query + "%");
     }
