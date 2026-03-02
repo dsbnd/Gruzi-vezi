@@ -17,7 +17,7 @@ public class AdditionalServicesService {
 
     // === КОНСТАНТЫ ДЛЯ РАСЧЕТОВ ===
 
-    // Страхование
+
     private static final BigDecimal INSURANCE_RATE = new BigDecimal("0.02"); // 2% от стоимости груза
     private static final BigDecimal MIN_INSURANCE = new BigDecimal("3000.00"); // Мин. страхование
     private static final BigDecimal BASE_CARGO_VALUE_PER_TON = new BigDecimal("100000"); // 100 000 руб/тонна
