@@ -2,7 +2,7 @@ package com.rzd.dispatcher.model.dto.request;
 
 import jakarta.validation.constraints.*;
 import lombok.Data;
-import java.math.BigDecimal;
+import java.util.Set;
 
 @Data
 public class PriceCalculationRequest {
@@ -22,4 +22,7 @@ public class PriceCalculationRequest {
 
     @NotBlank(message = "Станция назначения обязательна")
     private String destinationStation;
+
+    // Коды выбранных дополнительных услуг
+    private Set<String> selectedServices;
 }
