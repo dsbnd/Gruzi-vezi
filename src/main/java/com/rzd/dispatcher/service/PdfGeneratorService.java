@@ -171,8 +171,7 @@ public class PdfGeneratorService {
         Font fontSmall = new Font(bf, 8, Font.NORMAL);
 
         // 1. Заголовок
-        Paragraph title = new Paragraph("Договор № " + order.getId().toString().substring(0, 8).toUpperCase() +
-                "\nоб организации перевозок грузов железнодорожным транспортом", fontTitle);
+        Paragraph title = new Paragraph("Договор об организации перевозок грузов железнодорожным транспортом", fontTitle);
         title.setAlignment(Element.ALIGN_CENTER);
         title.setSpacingAfter(20);
         document.add(title);
