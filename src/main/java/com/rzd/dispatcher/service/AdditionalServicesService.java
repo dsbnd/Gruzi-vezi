@@ -194,7 +194,7 @@ public class AdditionalServicesService {
         BigDecimal insurancePrice = calculateInsurancePrice(cargoType, weightKg);
         BigDecimal cargoValue = estimateCargoValue(cargoType, weightKg);
         services.add(AdditionalServiceDto.builder()
-                .name("📋 Страхование груза")
+                .name("Страхование груза")
                 .code("INSURANCE")
                 .description(String.format(
                         "Полное страхование груза (2%% от стоимости). Оценочная стоимость: %s руб",
@@ -202,30 +202,29 @@ public class AdditionalServicesService {
                 .price(insurancePrice)
                 .details(String.format("Ставка: 2%% | Мин. сумма: %s руб", formatPrice(MIN_INSURANCE)))
                 .category("SAFETY")
-                .icon("🛡️")
                 .build());
 
         // 2. СТРАХОВАНИЕ ОТВЕТСТВЕННОСТИ
         BigDecimal liabilityPrice = calculateLiabilityInsurance(basePrice);
         services.add(AdditionalServiceDto.builder()
-                .name("📋 Страхование ответственности")
+                .name("Страхование ответственности")
                 .code("LIABILITY_INSURANCE")
                 .description("Страхование гражданской ответственности перевозчика")
                 .price(liabilityPrice)
                 .details("1% от стоимости перевозки")
                 .category("SAFETY")
-                .icon("📄")
+
                 .build());
 
         // 3. СОПРОВОЖДЕНИЕ (ОХРАНА)
         services.add(AdditionalServiceDto.builder()
-                .name("🚔 Вооруженное сопровождение")
+                .name("Вооруженное сопровождение")
                 .code("ESCORT")
                 .description("Квалифицированная охрана на всем маршруте следования")
                 .price(ESCORT_FIXED_PRICE)
                 .details("Фиксированная цена за маршрут")
                 .category("SAFETY")
-                .icon("🔫")
+
                 .build());
 
         // 4. УСКОРЕННАЯ ДОСТАВКА
@@ -233,13 +232,13 @@ public class AdditionalServicesService {
                 .multiply(EXPRESS_RATE)
                 .setScale(2, RoundingMode.HALF_UP);
         services.add(AdditionalServiceDto.builder()
-                .name("⚡ Ускоренная доставка")
+                .name("Ускоренная доставка")
                 .code("EXPRESS")
                 .description("Сокращение сроков доставки на 30% (приоритетная обработка)")
                 .price(expressPrice)
                 .details("+30% к стоимости перевозки")
                 .category("LOGISTICS")
-                .icon("🚀")
+
                 .build());
 
         // 5. ТЕРМИНАЛЬНАЯ ОБРАБОТКА
@@ -249,13 +248,13 @@ public class AdditionalServicesService {
                 .multiply(TERMINAL_RATE_PER_TON)
                 .setScale(2, RoundingMode.HALF_UP);
         services.add(AdditionalServiceDto.builder()
-                .name("🏗️ Терминальная обработка")
+                .name("Терминальная обработка")
                 .code("TERMINAL")
                 .description("Погрузочно-разгрузочные работы на станциях отправления и назначения")
                 .price(terminalPrice)
                 .details(String.format("%s руб/тонна", formatPrice(TERMINAL_RATE_PER_TON)))
                 .category("LOGISTICS")
-                .icon("📦")
+
                 .build());
 
         // 6. GPS-МОНИТОРИНГ
@@ -270,40 +269,31 @@ public class AdditionalServicesService {
         } else {
             gpsPrice = MIN_GPS_PRICE;
         }
-        services.add(AdditionalServiceDto.builder()
-                .name("🛰️ GPS-мониторинг")
-                .code("TRACKING")
-                .description("Отслеживание груза в реальном времени с уведомлениями в Telegram/SMS")
-                .price(gpsPrice)
-                .details(String.format("%s руб/км, мин. %s руб",
-                        formatPrice(GPS_RATE_PER_KM), formatPrice(MIN_GPS_PRICE)))
-                .category("MONITORING")
-                .icon("📍")
-                .build());
+
 
         // 7. ТАМОЖЕННОЕ ОФОРМЛЕНИЕ
         boolean isInternational = isInternationalRoute(departureStation, destinationStation);
         if (isInternational) {
             services.add(AdditionalServiceDto.builder()
-                    .name("🛃 Таможенное оформление")
+                    .name("Таможенное оформление")
                     .code("CUSTOMS")
                     .description("Полное таможенное сопровождение, подготовка деклараций")
                     .price(CUSTOMS_FIXED_PRICE)
                     .details("Фиксированная цена, включая консультацию")
                     .category("DOCUMENTS")
-                    .icon("📑")
+
                     .build());
         }
 
         // 8. КОНСОЛИДАЦИЯ ГРУЗА
         services.add(AdditionalServiceDto.builder()
-                .name("📦 Консолидация груза")
+                .name("Консолидация груза")
                 .code("CONSOLIDATION")
                 .description("Объединение с другими грузами для экономии (сборная перевозка)")
                 .price(new BigDecimal("0")) // Бесплатно, но влияет на сроки
                 .details("Экономия до 40% при загрузке < 50%")
                 .category("LOGISTICS")
-                .icon("🔄")
+
                 .build());
 
         return services;
