@@ -18,7 +18,7 @@ import java.util.UUID;
 @Repository
 public interface WagonRepository extends JpaRepository<Wagon, UUID> {
 
-    // Базовые поиски
+    
     List<Wagon> findByStatus(WagonStatus status);
 
     List<Wagon> findByWagonType(WagonType wagonType);
@@ -27,7 +27,7 @@ public interface WagonRepository extends JpaRepository<Wagon, UUID> {
 
     Optional<Wagon> findByWagonNumber(String wagonNumber);
 
-    // Сложный поиск доступных вагонов
+    
     @Query("SELECT w FROM Wagon w WHERE w.status = 'свободен' " +
             "AND w.maxWeightKg >= :weight " +
             "AND w.maxVolumeM3 >= :volume " +
@@ -36,17 +36,17 @@ public interface WagonRepository extends JpaRepository<Wagon, UUID> {
                                     @Param("weight") Integer weight,
                                     @Param("volume") Integer volume);
 
-    // Поиск с пессимистичной блокировкой для резервирования
+    
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT w FROM Wagon w WHERE w.id = :id")
     Optional<Wagon> findByIdForUpdate(@Param("id") UUID id);
 
-    // Обновление статуса вагона
+    
     @Modifying
     @Query("UPDATE Wagon w SET w.status = :status WHERE w.id = :id")
     int updateStatus(@Param("id") UUID id, @Param("status") WagonStatus status);
 
-    // Статистика по вагонам
+    
     @Query("SELECT w.status, COUNT(w) FROM Wagon w GROUP BY w.status")
     List<Object[]> getWagonStatistics();
 }

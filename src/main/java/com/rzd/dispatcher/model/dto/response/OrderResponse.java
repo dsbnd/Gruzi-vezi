@@ -24,7 +24,7 @@ public class OrderResponse {
     private String departureStation;
     private String destinationStation;
 
-    // Добавили желаемый тип вагона, чтобы фронтенд его видел
+
     private WagonType requestedWagonType;
 
     private UUID wagonId;
@@ -39,10 +39,10 @@ public class OrderResponse {
     @Data
     @Builder
     public static class CargoDto {
-        private CargoType cargoType;         // Изменили String на Enum
+        private CargoType cargoType;
         private Integer weightKg;
         private Integer volumeM3;
-        private PackagingType packagingType; // Изменили String на Enum
+        private PackagingType packagingType;
     }
 
     @Data
@@ -59,7 +59,7 @@ public class OrderResponse {
                 .companyName(order.getUser().getCompanyName())
                 .departureStation(order.getDepartureStation())
                 .destinationStation(order.getDestinationStation())
-                .requestedWagonType(order.getRequestedWagonType()) // Прокинули это поле из сущности
+                .requestedWagonType(order.getRequestedWagonType())
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
                 .carbonFootprintKg(order.getCarbonFootprintKg())
@@ -71,7 +71,7 @@ public class OrderResponse {
         }
 
         if (order.getCargo() != null) {
-            // Теперь здесь идеальное совпадение типов (Enum -> Enum)
+
             builder.cargo(CargoDto.builder()
                     .cargoType(order.getCargo().getCargoType())
                     .weightKg(order.getCargo().getWeightKg())

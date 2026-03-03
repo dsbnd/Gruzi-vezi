@@ -17,7 +17,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Ловим неверный логин или пароль (ошибка от Spring Security)
+    
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
         ErrorResponse error = new ErrorResponse(
@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
 
-    // 2. Ловим наши ручные бизнес-ошибки (например, "Пользователь уже существует")
+    
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeExceptions(RuntimeException ex) {
         ErrorResponse error = new ErrorResponse(
@@ -39,15 +39,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
-    // 3. Ловим ошибки валидации (аннотации @NotBlank, @Email, @Min в твоих DTO)
-    // Она вернет список всех полей, которые клиент заполнил неправильно!
+    
+    
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName, errorMessage); // Например: {"email": "Некорректный формат"}
+            errors.put(fieldName, errorMessage); 
         });
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }

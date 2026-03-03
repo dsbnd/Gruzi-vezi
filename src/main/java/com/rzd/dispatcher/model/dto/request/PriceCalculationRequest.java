@@ -23,6 +23,5 @@ public class PriceCalculationRequest {
     @NotBlank(message = "Станция назначения обязательна")
     private String destinationStation;
 
-    // Коды выбранных дополнительных услуг
     private Set<String> selectedServices;
 }

@@ -34,22 +34,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
-        // Если заголовка нет или он не начинается с "Bearer ", пропускаем фильтр
+        
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Достаем токен (отрезаем "Bearer ")
+        
         jwt = authHeader.substring(7);
         try {
             userEmail = jwtService.extractEmail(jwt);
 
-            // Если email есть, а пользователь еще не аутентифицирован
+            
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-                // Проверяем валидность токена
+                
                 if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
@@ -57,17 +57,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             userDetails.getAuthorities()
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    // Сохраняем пользователя в контекст Spring Security
+                    
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
             filterChain.doFilter(request, response);
         }catch (ExpiredJwtException e) {
-            // ВОТ ОНА МАГИЯ! Ловим протухший токен и отвечаем красивым JSON'ом
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Ставим статус 401
+            
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); 
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"status\": 401, \"message\": \"Время действия токена истекло\"}");
-            return; // Прерываем цепочку фильтров, дальше запрос не пускаем!
+            return; 
         }
     }
 }

@@ -34,7 +34,7 @@ public class Payment {
     @Column(name = "payment_method")
     private String paymentMethod;
 
-    // КОРПОРАТИВНЫЕ РЕКВИЗИТЫ
+    
     @Column(name = "company_name")
     private String companyName;
 
@@ -65,11 +65,11 @@ public class Payment {
     @Column(name = "payment_date")
     private OffsetDateTime paymentDate;
 
-    // ДОБАВЛЯЕМ поле metadata
+    
     @Column(name = "metadata", columnDefinition = "TEXT")
-    private String metadata;  // Для хранения доп. информации о транзакции
+    private String metadata;  
 
-    // Системные поля
+    
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
@@ -85,11 +85,11 @@ public class Payment {
     }
 
     public enum PaymentStatus {
-        PENDING,       // Ожидает оплаты
-        PROCESSING,    // Обрабатывается банком
-        SUCCEEDED,     // Оплачено успешно
-        FAILED,        // Ошибка оплаты
-        REFUNDED,      // Возврат
-        WAITING_ACCEPT // Ожидает акцепта (для счетов)
+        PENDING,       
+        PROCESSING,    
+        SUCCEEDED,     
+        FAILED,        
+        REFUNDED,      
+        WAITING_ACCEPT 
     }
 }

@@ -15,7 +15,7 @@ public class PaymentWebhookRequest {
     @JsonProperty("order_id")
     private UUID orderId;
 
-    private String status; // succeeded, failed, refunded, processing
+    private String status;
 
     private BigDecimal amount;
 
@@ -25,7 +25,7 @@ public class PaymentWebhookRequest {
     @JsonProperty("error_message")
     private String errorMessage;
 
-    // Корпоративные поля (от банка/платежной системы)
+    // Корпоративные поля
     @JsonProperty("inn")
     private String inn;
 

@@ -21,7 +21,7 @@ public class CreateOrderRequest {
     private String destinationStation;
 
     @NotNull(message = "Wagon type is required")
-    private WagonType requestedWagonType; // Желаемый род вагона
+    private WagonType requestedWagonType;
 
     @NotNull(message = "Cargo information is required")
     @Valid

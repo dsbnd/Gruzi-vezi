@@ -28,29 +28,26 @@ public class PricingService {
 
     private static final BigDecimal CO2_FACTOR = new BigDecimal("0.02");
 
-    /**
-     * РАСЧЕТ ПОЛНОЙ СТОИМОСТИ С ВАГОНОМ
-     */
     @Transactional(readOnly = true)
     public PriceResponse calculateFullPrice(UUID orderId, UUID wagonId, Set<String> selectedServices) {
         log.info("Расчет полной стоимости для заказа: {}, вагон: {}", orderId, wagonId);
 
-        // 1. Получаем заказ
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
 
-        // 2. Получаем вагон
+
         Wagon wagon = wagonRepository.findById(wagonId)
                 .orElseThrow(() -> new RuntimeException("Вагон не найден с ID: " + wagonId));
 
-        // 3. Получаем расстояние между станциями
+
         int distance = getDistanceBetweenStations(
                 order.getDepartureStation(),
                 order.getDestinationStation()
         );
         log.info("Расстояние между станциями: {} км", distance);
 
-        // 4. Получаем тип груза
+
         final String cargoTypeName;
         final Integer weightKg;
         if (order.getCargo() != null) {
@@ -61,7 +58,7 @@ public class PricingService {
             weightKg = 0;
         }
 
-        // 5. Получаем тариф
+
         final String wagonTypeName = wagon.getWagonType().name();
 
         WagonTariff tariff = wagonTariffRepository.findByWagonTypeAndCargoType(
@@ -70,7 +67,7 @@ public class PricingService {
         ).orElseThrow(() -> new RuntimeException(
                 "Тариф не найден для вагона: " + wagonTypeName + " и груза: " + cargoTypeName));
 
-        // 6. Расчет базовой цены
+
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal(1000), 2, RoundingMode.HALF_UP);
 
@@ -86,7 +83,7 @@ public class PricingService {
 
         log.info("Базовая цена: {} руб", basePrice);
 
-        // 7. Получаем ВСЕ доступные услуги с флагами выбора
+
         List<PriceResponse.AdditionalServiceDto> allServices =
                 additionalServicesService.getServicesWithSelection(
                         cargoTypeName,
@@ -98,7 +95,7 @@ public class PricingService {
                         selectedServices
                 );
 
-        // 8. Рассчитываем цену только ВЫБРАННЫХ услуг
+
         BigDecimal servicesPrice = additionalServicesService.calculateServicesPrice(
                 selectedServices,
                 cargoTypeName,
@@ -111,13 +108,13 @@ public class PricingService {
 
         log.info("Цена выбранных услуг: {} руб", servicesPrice);
 
-        // 9. Расчет углеродного следа
+
         double carbonFootprint = calculateCarbonFootprint(weightKg, distance);
 
-        // 10. Оценка стоимости груза
+
         BigDecimal cargoValue = additionalServicesService.estimateCargoValue(cargoTypeName, weightKg);
 
-        // 11. Формируем ответ
+
         PriceResponse response = PriceResponse.builder()
                 .basePrice(basePrice)
                 .additionalServicesPrice(servicesPrice)
@@ -138,9 +135,6 @@ public class PricingService {
         return response;
     }
 
-    /**
-     * РАСЧЕТ СТОИМОСТИ ПО ЗАПРОСУ
-     */
     @Transactional(readOnly = true)
     public PriceResponse calculatePrice(PriceCalculationRequest request) {
         log.info("Расчет стоимости по запросу: груз={}, вагон={}, вес={}кг",
@@ -169,7 +163,7 @@ public class PricingService {
             basePrice = tariff.getMinPrice();
         }
 
-        // Получаем все услуги с флагами выбора
+
         List<PriceResponse.AdditionalServiceDto> allServices =
                 additionalServicesService.getServicesWithSelection(
                         request.getCargoType(),
@@ -181,7 +175,7 @@ public class PricingService {
                         request.getSelectedServices()
                 );
 
-        // Рассчитываем цену выбранных услуг
+
         BigDecimal servicesPrice = additionalServicesService.calculateServicesPrice(
                 request.getSelectedServices(),
                 request.getCargoType(),
@@ -215,26 +209,22 @@ public class PricingService {
                 .build();
     }
 
-    /**
-     * РАСЧЕТ ОРИЕНТИРОВОЧНОЙ ЦЕНЫ (БЕЗ ВАГОНА)
-     * Используется для предварительной оценки
-     */
     @Transactional(readOnly = true)
     public PriceResponse calculateEstimatedPrice(UUID orderId, String wagonType) {
         log.info("Расчет ориентировочной цены для заказа: {}, тип вагона: {}", orderId, wagonType);
 
-        // 1. Получаем заказ
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
 
-        // 2. Получаем расстояние между станциями
+
         int distance = getDistanceBetweenStations(
                 order.getDepartureStation(),
                 order.getDestinationStation()
         );
         log.info("Расстояние между станциями: {} км", distance);
 
-        // 3. Получаем тип груза
+
         final String cargoTypeName;
         final Integer weightKg;
         if (order.getCargo() != null) {
@@ -245,7 +235,7 @@ public class PricingService {
             weightKg = 0;
         }
 
-        // 4. Пытаемся найти тариф, если нет - используем средний
+
         WagonTariff tariff;
         try {
             tariff = wagonTariffRepository.findByWagonTypeAndCargoType(
@@ -253,7 +243,7 @@ public class PricingService {
                     cargoTypeName
             ).orElseThrow(() -> new RuntimeException("Тариф не найден"));
         } catch (Exception e) {
-            // Если точный тариф не найден, создаем тариф по умолчанию
+
             log.warn("Тариф не найден для вагона {} и груза {}, используем значения по умолчанию",
                     wagonType, cargoTypeName);
             tariff = new WagonTariff();
@@ -262,7 +252,7 @@ public class PricingService {
             tariff.setMinPrice(new BigDecimal("4000.00"));
         }
 
-        // 5. Расчет базовой цены
+
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal(1000), 2, RoundingMode.HALF_UP);
 
@@ -272,20 +262,20 @@ public class PricingService {
                 .multiply(tariff.getCoefficient())
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // Проверка минимальной цены
+
         if (tariff.getMinPrice() != null && estimatedPrice.compareTo(tariff.getMinPrice()) < 0) {
             estimatedPrice = tariff.getMinPrice();
         }
 
-        // 6. Расчет углеродного следа
+
         double carbonFootprint = calculateCarbonFootprint(weightKg, distance);
 
-        // 7. Оценка стоимости груза
+
         BigDecimal cargoValue = additionalServicesService.estimateCargoValue(cargoTypeName, weightKg);
 
         log.info("Ориентировочная цена: {} руб", estimatedPrice);
 
-        // 8. Формируем ответ (без дополнительных услуг, только оценка)
+
         return PriceResponse.builder()
                 .basePrice(estimatedPrice)
                 .additionalServicesPrice(BigDecimal.ZERO)
@@ -302,9 +292,7 @@ public class PricingService {
                 .build();
     }
 
-    /**
-     * ОПРЕДЕЛЕНИЕ УРОВНЯ РИСКА
-     */
+
     private String determineRiskLevel(String cargoType, Integer weightKg) {
         if (cargoType == null) return "Средний";
 
@@ -321,9 +309,7 @@ public class PricingService {
         }
     }
 
-    /**
-     * ПОЛУЧЕНИЕ РАССТОЯНИЯ МЕЖДУ СТАНЦИЯМИ
-     */
+
     private int getDistanceBetweenStations(String from, String to) {
         return distanceRepository.findByFromStationAndToStation(from, to)
                 .map(StationDistance::getDistanceKm)
@@ -332,9 +318,6 @@ public class PricingService {
                         .orElse(1000));
     }
 
-    /**
-     * РАСЧЕТ УГЛЕРОДНОГО СЛЕДА
-     */
     private double calculateCarbonFootprint(Integer weightKg, Integer distanceKm) {
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal("1000"), 2, RoundingMode.HALF_UP);

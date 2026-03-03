@@ -15,64 +15,58 @@ import java.util.Set;
 @Slf4j
 public class AdditionalServicesService {
 
-    // === КОНСТАНТЫ ДЛЯ РАСЧЕТОВ ===
+
+    private static final BigDecimal INSURANCE_RATE = new BigDecimal("0.02");
+    private static final BigDecimal MIN_INSURANCE = new BigDecimal("3000.00");
+    private static final BigDecimal BASE_CARGO_VALUE_PER_TON = new BigDecimal("100000");
 
 
-    private static final BigDecimal INSURANCE_RATE = new BigDecimal("0.02"); // 2% от стоимости груза
-    private static final BigDecimal MIN_INSURANCE = new BigDecimal("3000.00"); // Мин. страхование
-    private static final BigDecimal BASE_CARGO_VALUE_PER_TON = new BigDecimal("100000"); // 100 000 руб/тонна
+    private static final BigDecimal ELECTRONICS_COEFF = new BigDecimal("2.0");
+    private static final BigDecimal DANGEROUS_COEFF = new BigDecimal("1.5");
+    private static final BigDecimal PERISHABLE_COEFF = new BigDecimal("1.3");
+    private static final BigDecimal MACHINERY_COEFF = new BigDecimal("1.8");
+    private static final BigDecimal METAL_COEFF = new BigDecimal("0.8");
 
-    // Коэффициенты для разных типов грузов
-    private static final BigDecimal ELECTRONICS_COEFF = new BigDecimal("2.0");  // электроника дороже
-    private static final BigDecimal DANGEROUS_COEFF = new BigDecimal("1.5");    // опасные грузы
-    private static final BigDecimal PERISHABLE_COEFF = new BigDecimal("1.3");   // скоропортящиеся
-    private static final BigDecimal MACHINERY_COEFF = new BigDecimal("1.8");     // оборудование
-    private static final BigDecimal METAL_COEFF = new BigDecimal("0.8");         // металл дешевле
 
-    // Сопровождение
     private static final BigDecimal ESCORT_FIXED_PRICE = new BigDecimal("15000.00");
-    private static final int ESCORT_WEIGHT_THRESHOLD = 50000; // 50 тонн
+    private static final int ESCORT_WEIGHT_THRESHOLD = 50000;
 
-    // Ускоренная доставка
-    private static final BigDecimal EXPRESS_RATE = new BigDecimal("0.30"); // 30% от стоимости
 
-    // Терминальная обработка
-    private static final BigDecimal TERMINAL_RATE_PER_TON = new BigDecimal("500"); // 500 руб/тонна
+    private static final BigDecimal EXPRESS_RATE = new BigDecimal("0.30");
 
-    // GPS-мониторинг
-    private static final BigDecimal GPS_RATE_PER_KM = new BigDecimal("10"); // 10 руб/км
+
+    private static final BigDecimal TERMINAL_RATE_PER_TON = new BigDecimal("500");
+
+
+    private static final BigDecimal GPS_RATE_PER_KM = new BigDecimal("10");
     private static final BigDecimal MIN_GPS_PRICE = new BigDecimal("2000.00");
 
-    // Таможенное оформление
+
     private static final BigDecimal CUSTOMS_FIXED_PRICE = new BigDecimal("25000.00");
 
-    // Страхование ответственности
-    private static final BigDecimal LIABILITY_INSURANCE_RATE = new BigDecimal("0.01"); // 1%
 
-    /**
-     * РАСЧЕТ СТОИМОСТИ СТРАХОВАНИЯ ГРУЗА
-     * Формула: Вес(тонны) * Базовая стоимость тонны * Коэф. типа груза * 2%
-     */
+    private static final BigDecimal LIABILITY_INSURANCE_RATE = new BigDecimal("0.01");
+
     public BigDecimal calculateInsurancePrice(String cargoType, Integer weightKg) {
-        // 1. Переводим вес в тонны
+
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal(1000), 2, RoundingMode.HALF_UP);
 
-        // 2. Получаем коэффициент типа груза
+
         BigDecimal coefficient = getCargoCoefficient(cargoType);
 
-        // 3. Расчет оценочной стоимости груза
+
         BigDecimal cargoValue = weightTons
                 .multiply(BASE_CARGO_VALUE_PER_TON)
                 .multiply(coefficient)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // 4. Расчет страховой премии (2%)
+
         BigDecimal insurancePrice = cargoValue
                 .multiply(INSURANCE_RATE)
                 .setScale(2, RoundingMode.HALF_UP);
 
-        // 5. Проверка минимальной суммы
+
         if (insurancePrice.compareTo(MIN_INSURANCE) < 0) {
             insurancePrice = MIN_INSURANCE;
         }
@@ -83,19 +77,12 @@ public class AdditionalServicesService {
         return insurancePrice;
     }
 
-    /**
-     * РАСЧЕТ СТОИМОСТИ СТРАХОВАНИЯ ОТВЕТСТВЕННОСТИ
-     * 1% от стоимости перевозки
-     */
     public BigDecimal calculateLiabilityInsurance(BigDecimal freightPrice) {
         return freightPrice
                 .multiply(LIABILITY_INSURANCE_RATE)
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * ПОЛУЧЕНИЕ КОЭФФИЦИЕНТА ТИПА ГРУЗА
-     */
     private BigDecimal getCargoCoefficient(String cargoType) {
         if (cargoType == null) return BigDecimal.ONE;
 
@@ -112,15 +99,12 @@ public class AdditionalServicesService {
         } else if (type.contains("метал") || type.contains("сталь") || type.contains("чугун")) {
             return METAL_COEFF;
         } else if (type.contains("уголь") || type.contains("руда")) {
-            return new BigDecimal("0.7"); // Низкая стоимость
+            return new BigDecimal("0.7");
         } else {
             return BigDecimal.ONE;
         }
     }
 
-    /**
-     * ПРОВЕРКА, ЯВЛЯЕТСЯ ЛИ ГРУЗ ЦЕННЫМ
-     */
     private boolean isValuableCargo(String cargoType) {
         if (cargoType == null) return false;
         String type = cargoType.toLowerCase();
@@ -131,9 +115,7 @@ public class AdditionalServicesService {
                 type.contains("machinery");
     }
 
-    /**
-     * ПРОВЕРКА, ЯВЛЯЕТСЯ ЛИ ГРУЗ ОПАСНЫМ
-     */
+
     private boolean isDangerousCargo(String cargoType) {
         if (cargoType == null) return false;
         String type = cargoType.toLowerCase();
@@ -144,13 +126,10 @@ public class AdditionalServicesService {
                 type.contains("взрыв");
     }
 
-    /**
-     * ПРОВЕРКА, ЯВЛЯЕТСЯ ЛИ МАРШРУТ СРОЧНЫМ
-     */
     private boolean isUrgentRoute(String from, String to) {
         if (from == null || to == null) return false;
 
-        // Основные направления
+
         boolean isMoscow = from.contains("Москва") || to.contains("Москва");
         boolean isSpb = from.contains("Питер") || from.contains("Петербург") ||
                 to.contains("Питер") || to.contains("Петербург");
@@ -190,7 +169,7 @@ public class AdditionalServicesService {
 
         List<AdditionalServiceDto> services = new ArrayList<>();
 
-        // 1. СТРАХОВАНИЕ ГРУЗА
+
         BigDecimal insurancePrice = calculateInsurancePrice(cargoType, weightKg);
         BigDecimal cargoValue = estimateCargoValue(cargoType, weightKg);
         services.add(AdditionalServiceDto.builder()
@@ -204,7 +183,7 @@ public class AdditionalServicesService {
                 .category("SAFETY")
                 .build());
 
-        // 2. СТРАХОВАНИЕ ОТВЕТСТВЕННОСТИ
+
         BigDecimal liabilityPrice = calculateLiabilityInsurance(basePrice);
         services.add(AdditionalServiceDto.builder()
                 .name("Страхование ответственности")
@@ -216,7 +195,7 @@ public class AdditionalServicesService {
 
                 .build());
 
-        // 3. СОПРОВОЖДЕНИЕ (ОХРАНА)
+
         services.add(AdditionalServiceDto.builder()
                 .name("Вооруженное сопровождение")
                 .code("ESCORT")
@@ -227,7 +206,7 @@ public class AdditionalServicesService {
 
                 .build());
 
-        // 4. УСКОРЕННАЯ ДОСТАВКА
+
         BigDecimal expressPrice = basePrice
                 .multiply(EXPRESS_RATE)
                 .setScale(2, RoundingMode.HALF_UP);
@@ -241,7 +220,7 @@ public class AdditionalServicesService {
 
                 .build());
 
-        // 5. ТЕРМИНАЛЬНАЯ ОБРАБОТКА
+
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal(1000), 2, RoundingMode.HALF_UP);
         BigDecimal terminalPrice = weightTons
@@ -257,7 +236,7 @@ public class AdditionalServicesService {
 
                 .build());
 
-        // 6. GPS-МОНИТОРИНГ
+
         BigDecimal gpsPrice;
         if (distanceKm != null && distanceKm > 0) {
             gpsPrice = new BigDecimal(distanceKm)
@@ -271,7 +250,7 @@ public class AdditionalServicesService {
         }
 
 
-        // 7. ТАМОЖЕННОЕ ОФОРМЛЕНИЕ
+
         boolean isInternational = isInternationalRoute(departureStation, destinationStation);
         if (isInternational) {
             services.add(AdditionalServiceDto.builder()
@@ -285,12 +264,12 @@ public class AdditionalServicesService {
                     .build());
         }
 
-        // 8. КОНСОЛИДАЦИЯ ГРУЗА
+
         services.add(AdditionalServiceDto.builder()
                 .name("Консолидация груза")
                 .code("CONSOLIDATION")
                 .description("Объединение с другими грузами для экономии (сборная перевозка)")
-                .price(new BigDecimal("0")) // Бесплатно, но влияет на сроки
+                .price(new BigDecimal("0"))
                 .details("Экономия до 40% при загрузке < 50%")
                 .category("LOGISTICS")
 
@@ -299,13 +278,11 @@ public class AdditionalServicesService {
         return services;
     }
 
-    /**
-     * ПРОВЕРКА МЕЖДУНАРОДНОГО МАРШРУТА
-     */
+
     private boolean isInternationalRoute(String from, String to) {
         if (from == null || to == null) return false;
 
-        // Список погранпереходов
+
         List<String> borderStations = List.of(
                 "Брест", "Гродно", "Смоленск", "Уссурийск", "Забайкальск",
                 "Наушки", "Хасан", "Выборг", "Мурманск"
@@ -316,9 +293,6 @@ public class AdditionalServicesService {
         );
     }
 
-    /**
-     * ПОЛУЧЕНИЕ РЕКОМЕНДОВАННЫХ УСЛУГ
-     */
     public List<AdditionalServiceDto> getRecommendedServices(
             String cargoType,
             String departureStation,
@@ -342,9 +316,6 @@ public class AdditionalServicesService {
         return recommendations;
     }
 
-    /**
-     * ПРОВЕРКА, РЕКОМЕНДУЕТСЯ ЛИ УСЛУГА
-     */
     private boolean isServiceRecommended(AdditionalServiceDto service,
                                          String cargoType,
                                          Integer weightKg,
@@ -375,16 +346,13 @@ public class AdditionalServicesService {
                 return isInternationalRoute(departureStation, destinationStation);
 
             case "CONSOLIDATION":
-                return true; // Всегда показываем как опцию
+                return true;
 
             default:
                 return false;
         }
     }
 
-    /**
-     * ПОЛУЧЕНИЕ УСЛУГ С ФЛАГАМИ ВЫБОРА И РЕКОМЕНДАЦИЙ
-     */
     public List<AdditionalServiceDto> getServicesWithSelection(
             String cargoType,
             String departureStation,
@@ -408,9 +376,9 @@ public class AdditionalServicesService {
             boolean isSelected = selectedServiceCodes != null &&
                     selectedServiceCodes.contains(service.getCode());
 
-            // Для консолидации особая логика - она бесплатная
+
             if ("CONSOLIDATION".equals(service.getCode())) {
-                isSelected = true; // Всегда доступна
+                isSelected = true;
             }
 
             AdditionalServiceDto serviceWithFlags = AdditionalServiceDto.builder()
@@ -432,9 +400,6 @@ public class AdditionalServicesService {
         return result;
     }
 
-    /**
-     * ПОЛУЧЕНИЕ ТЕКСТА ПРИЧИНЫ РЕКОМЕНДАЦИИ
-     */
     private String getRecommendationReason(AdditionalServiceDto service,
                                            String cargoType,
                                            Integer weightKg,
@@ -473,9 +438,6 @@ public class AdditionalServicesService {
         }
     }
 
-    /**
-     * РАСЧЕТ СТОИМОСТИ ВЫБРАННЫХ УСЛУГ
-     */
     public BigDecimal calculateServicesPrice(
             Set<String> selectedServiceCodes,
             String cargoType,
@@ -536,7 +498,7 @@ public class AdditionalServicesService {
                     break;
 
                 case "CONSOLIDATION":
-                    // Бесплатно, ничего не добавляем
+
                     break;
             }
         }
@@ -544,9 +506,6 @@ public class AdditionalServicesService {
         return total.setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * ФОРМАТИРОВАНИЕ ЦЕНЫ ДЛЯ ОТОБРАЖЕНИЯ
-     */
     private String formatPrice(BigDecimal price) {
         return String.format("%,.0f", price).replace(',', ' ');
     }

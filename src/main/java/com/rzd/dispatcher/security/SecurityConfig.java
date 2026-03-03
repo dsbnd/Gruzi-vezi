@@ -30,14 +30,14 @@ public class SecurityConfig {
 
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfiguration = new CorsConfiguration();
-                    corsConfiguration.setAllowedOriginPatterns(List.of("http://localhost:5173")); // Разрешаем запросы с любых портов (React)
-                    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); // OPTIONS критически важен!
+                    corsConfiguration.setAllowedOriginPatterns(List.of("http://localhost:5173"));
+                    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     corsConfiguration.setAllowedHeaders(List.of("*"));
                     corsConfiguration.setAllowCredentials(true);
                     return corsConfiguration;
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        // Публичные эндпоинты
+
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/dispatcher/pricing/calculate",
@@ -46,7 +46,7 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Все остальные требуют авторизации
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess

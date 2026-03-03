@@ -20,7 +20,7 @@ public class CompanyAccount {
     private UUID id;
 
     @Column(nullable = false, length = 12)
-    private String inn;  // Один ИНН может иметь много счетов
+    private String inn;
 
     @Column(name = "company_name", nullable = false)
     private String companyName;
@@ -38,10 +38,10 @@ public class CompanyAccount {
     private String bankName;
 
     @Column(name = "is_main")
-    private Boolean isMain = false;  // Основной счет для ИНН
+    private Boolean isMain = false;
 
     @Column(name = "is_rzd_account")
-    private Boolean isRzdAccount = false;  // Флаг, что это счет РЖД
+    private Boolean isRzdAccount = false;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;

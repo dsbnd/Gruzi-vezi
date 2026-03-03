@@ -91,17 +91,14 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден"));
 
-        // Проверка принадлежности
         if (!order.getUser().getEmail().equals(userEmail)) {
             throw new RuntimeException("Нет доступа к заказу");
         }
 
-        // Находим вагон по ID
         Wagon wagon = wagonRepository.findById(wagonId)
                 .orElseThrow(() -> new RuntimeException("Вагон не найден"));
 
-        // Устанавливаем объект вагона, а не ID
-        order.setWagon(wagon);                    // ← ВОТ ТАК ПРАВИЛЬНО!
+        order.setWagon(wagon);
         order.setTotalPrice(totalPrice);
         order.setStatus(OrderStatus.ожидает_оплаты);
 

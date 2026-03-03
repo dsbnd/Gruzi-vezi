@@ -94,7 +94,6 @@ public class AuthService {
     }
 
     public void logout(String refreshToken) {
-        // Удаляем токен из Redis
         refreshTokenService.deleteRefreshToken(refreshToken);
     }
 }

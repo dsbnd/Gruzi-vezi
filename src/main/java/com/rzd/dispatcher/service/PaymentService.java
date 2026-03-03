@@ -32,242 +32,15 @@ import java.util.stream.Collectors;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
-    private final OrderRepository orderRepository; // ДОБАВЛЯЕМ
+    private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final RedisTemplate<String, String> redisTemplate;
     private final PdfGeneratorService pdfGeneratorService;
-    private final CompanyAccountRepository accountRepository;  // Добавить
+    private final CompanyAccountRepository accountRepository;
     private final AccountService accountService;
 
     private static final String PAYMENT_IDEMPOTENCY_KEY = "payment:processed:";
     private static final String PAYMENT_INN_CACHE_KEY = "payments:inn:";
-
-    /**
-     * Создание корпоративного платежа с реквизитами
-     */
-//    @Transactional
-//    public Payment createCorporatePayment(PaymentRequest request, String userEmail) {
-//        log.info("Создание платежа: ИНН={}, сумма={}, счет={}",
-//                request.getInn(), request.getAmount(), request.getAccountNumber());
-//        // Получаем пользователя по email
-//        var user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-//
-//        // Игнорируем ИНН из запроса, берем из БД!
-//        String actualInn = user.getInn();
-//        String actualCompanyName = user.getCompanyName();
-//
-//        log.info("ИНН из запроса: {}, ИНН из БД: {}", request.getInn(), actualInn);
-//
-//        // Проверка на дубликат
-//        boolean exists = paymentRepository.existsByInnAndAmountAndPaymentPurposeAndStatusIn(
-//                actualInn,
-//                request.getAmount(),
-//                request.getPaymentPurpose(),
-//                List.of(PaymentStatus.PENDING, PaymentStatus.PROCESSING, PaymentStatus.SUCCEEDED)
-//        );
-//
-//        if (exists) {
-//            throw new RuntimeException("Платеж с такими реквизитами уже существует");
-//        }
-//
-//        Payment payment = new Payment();
-//        payment.setOrderId(request.getOrderId());
-//        payment.setAmount(request.getAmount());
-//        payment.setStatus(PaymentStatus.PENDING);
-//
-//        // Заполняем корпоративные реквизиты ИЗ БД!
-//        payment.setCompanyName(actualCompanyName);
-//        payment.setInn(actualInn);
-//        payment.setKpp(request.getKpp());
-//        payment.setBik(request.getBik());
-//        payment.setAccountNumber(request.getAccountNumber());
-//        payment.setCorrespondentAccount(request.getCorrespondentAccount());
-//        payment.setBankName(request.getBankName());
-//        payment.setPaymentPurpose(request.getPaymentPurpose());
-//
-//        // Генерируем номер платежного документа
-//        payment.setPaymentDocument(generatePaymentDocumentNumber());
-//
-//        Payment savedPayment = paymentRepository.save(payment);
-//
-//        // Кэшируем в Redis
-//        cachePaymentByInn(savedPayment);
-//
-//        log.info("Создан платеж: {}, документ: {}", savedPayment.getId(), savedPayment.getPaymentDocument());
-//
-//        return savedPayment;
-//    }
-
-//    @Transactional
-//    public Payment createCorporatePayment(PaymentRequest request, String userEmail) {
-//        log.info("Создание платежа: ИНН={}, сумма={}, введенный счет={}, назначение={}",
-//                request.getInn(), request.getAmount(), request.getAccountNumber(),
-//                request.getPaymentPurpose());
-//
-//        // Получаем пользователя по email
-//        var user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-//
-//        // Игнорируем ИНН из запроса, берем из БД!
-//        String actualInn = user.getInn();
-//        String actualCompanyName = user.getCompanyName();
-//
-//        log.info("ИНН из запроса: {}, ИНН из БД: {}", request.getInn(), actualInn);
-//        boolean orderPaid = orderRepository.findById(request.getOrderId())
-//                .map(order -> order.getStatus() == OrderStatus.оплачен)
-//                .orElse(false);
-//
-//        if (orderPaid) {
-//            throw new RuntimeException("Заказ уже оплачен");
-//        }
-//        // ===== НОВЫЙ КОД: Проверяем или создаем счет =====
-//        CompanyAccount payerAccount = accountRepository.findByAccountNumber(request.getAccountNumber())
-//                .orElse(null);
-//
-//        // Если счета нет в системе - создаем его
-//        if (payerAccount == null) {
-//            log.info("Счет {} не найден в системе, создаем новый для компании {} (ИНН: {})",
-//                    request.getAccountNumber(), actualCompanyName, actualInn);
-//
-//            // Проверяем, что указаны необходимые поля для создания счета
-//            if (request.getBik() == null || request.getBik().isEmpty()) {
-//                throw new RuntimeException("Для создания нового счета необходимо указать БИК");
-//            }
-//            if (request.getBankName() == null || request.getBankName().isEmpty()) {
-//                throw new RuntimeException("Для создания нового счета необходимо указать название банка");
-//            }
-//
-//            // Проверяем формат БИК
-//            if (!request.getBik().matches("^\\d{9}$")) {
-//                throw new RuntimeException("БИК должен содержать 9 цифр");
-//            }
-//
-//            // Создаем новый счет (не основной)
-//            payerAccount = accountService.createAccount(
-//                    actualInn,
-//                    actualCompanyName,
-//                    request.getBik(),
-//                    request.getBankName(),
-//                    false  // Не основной счет
-//            );
-//
-//            log.info("Новый счет создан: {}, баланс: {} руб",
-//                    payerAccount.getAccountNumber(), payerAccount.getBalance());
-//        } else {
-//            // Счет существует - проверяем принадлежность
-//            log.info("Счет {} найден в системе, баланс: {} руб",
-//                    request.getAccountNumber(), payerAccount.getBalance());
-//
-//            if (!payerAccount.getInn().equals(actualInn)) {
-//                throw new RuntimeException(
-//                        "Счет " + request.getAccountNumber() + " не принадлежит вашей компании. " +
-//                                "Укажите счет, зарегистрированный на ИНН " + actualInn);
-//            }
-//        }
-//        // ===== КОНЕЦ НОВОГО КОДА =====
-//
-//        // Проверка на дубликат платежа
-//        boolean exists = paymentRepository.existsByInnAndAmountAndPaymentPurposeAndStatusIn(
-//                actualInn,
-//                request.getAmount(),
-//                request.getPaymentPurpose(),
-//                List.of(PaymentStatus.PENDING, PaymentStatus.PROCESSING, PaymentStatus.SUCCEEDED)
-//        );
-//
-//        if (exists) {
-//            throw new RuntimeException("Платеж с такими реквизитами уже существует");
-//        }
-//
-//        // Проверяем достаточно ли средств на счете
-//        if (payerAccount.getBalance().compareTo(request.getAmount()) < 0) {
-//            throw new RuntimeException(String.format(
-//                    "Недостаточно средств на счете %s. Доступно: %.2f руб, требуется: %.2f руб",
-//                    request.getAccountNumber(), payerAccount.getBalance(), request.getAmount()));
-//        }
-//
-//        // Получаем счет РЖД из БД
-//        CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
-//                .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных. Обратитесь к администратору."));
-//
-//        log.info("Счет РЖД для зачисления: {}, баланс до операции: {} руб",
-//                rzdAccount.getAccountNumber(), rzdAccount.getBalance());
-//
-//        // Выполняем перевод денег
-//        AccountService.TransferResult transfer = accountService.transferMoney(
-//                payerAccount.getAccountNumber(),    // счет плательщика (существующий или новый)
-//                rzdAccount.getAccountNumber(),      // счет РЖД из БД
-//                request.getAmount(),
-//                "Оплата грузовой перевозки: " + request.getPaymentPurpose()
-//        );
-//
-//        if (!transfer.isSuccess()) {
-//            throw new RuntimeException("Ошибка перевода: " + transfer.getMessage());
-//        }
-//
-//        // Создаем платеж
-//        Payment payment = new Payment();
-//        payment.setOrderId(request.getOrderId());
-//        payment.setAmount(request.getAmount());
-//        payment.setStatus(PaymentStatus.SUCCEEDED);
-//        payment.setPaymentMethod(request.getPaymentMethod());
-//
-//        // Заполняем корпоративные реквизиты
-//        payment.setCompanyName(actualCompanyName);
-//        payment.setInn(actualInn);
-//        payment.setKpp(request.getKpp());
-//        payment.setBik(payerAccount.getBik()); // БИК из счета (из БД или нового)
-//        payment.setAccountNumber(payerAccount.getAccountNumber());
-//        payment.setCorrespondentAccount(request.getCorrespondentAccount());
-//        payment.setBankName(payerAccount.getBankName()); // Название банка из счета
-//        payment.setPaymentPurpose(request.getPaymentPurpose());
-//
-//        // Генерируем номера
-//        payment.setPaymentId(generatePaymentId());
-//        payment.setPaymentDocument(generatePaymentDocumentNumber());
-//        payment.setPaymentDate(OffsetDateTime.now());
-//        payment.setPaidAt(OffsetDateTime.now());
-//
-//        // Сохраняем информацию о переводе
-//        String metadata = String.format(
-//                "Перевод со счета %s (баланс был: %.2f, стал: %.2f) на счет РЖД %s (баланс был: %.2f, стал: %.2f). Сумма: %.2f",
-//                transfer.getFromAccountNumber(),
-//                transfer.getFromBalanceBefore(),
-//                transfer.getFromBalanceAfter(),
-//                transfer.getToAccountNumber(),
-//                transfer.getToBalanceBefore(),
-//                transfer.getToBalanceAfter(),
-//                transfer.getAmount()
-//        );
-//        payment.setMetadata(metadata);
-//
-//        // Если счет был только что создан, добавим пометку
-//        if (payerAccount.getCreatedAt().isAfter(OffsetDateTime.now().minusMinutes(1))) {
-//            payment.setMetadata(payment.getMetadata() + " (Счет был автоматически создан при оплате)");
-//        }
-//
-//        Payment savedPayment = paymentRepository.save(payment);
-//
-//        // Обновляем статус заказа
-//        if (savedPayment.getOrderId() != null) {
-//            orderRepository.findById(savedPayment.getOrderId()).ifPresent(order -> {
-//                order.setStatus(OrderStatus.оплачен);
-//                orderRepository.save(order);
-//                log.info("Статус заказа {} обновлен на 'оплачен'", savedPayment.getOrderId());
-//            });
-//        }
-//
-//        // Кэшируем в Redis
-//        cachePaymentByInn(savedPayment);
-//
-//        log.info("Платеж успешно создан: id={}, документ={}, сумма={}, статус={}",
-//                savedPayment.getId(), savedPayment.getPaymentDocument(),
-//                savedPayment.getAmount(), savedPayment.getStatus());
-//        log.info("Баланс счета {} после операции: {} руб",
-//                payerAccount.getAccountNumber(), transfer.getFromBalanceAfter());
-//
-//        return savedPayment;
-//    }
 
     @Transactional
     public Payment createCorporatePayment(PaymentRequest request, String userEmail) {
@@ -275,17 +48,17 @@ public class PaymentService {
                 request.getInn(), request.getAmount(), request.getAccountNumber(),
                 request.getPaymentPurpose());
 
-        // Получаем пользователя по email
+
         var user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
 
-        // Игнорируем ИНН из запроса, берем из БД!
+
         String actualInn = user.getInn();
         String actualCompanyName = user.getCompanyName();
 
         log.info("ИНН из запроса: {}, ИНН из БД: {}", request.getInn(), actualInn);
 
-        // ===== НОВАЯ ПРОВЕРКА: заказ уже оплачен? =====
+
         boolean orderPaid = orderRepository.findById(request.getOrderId())
                 .map(order -> order.getStatus() == OrderStatus.оплачен)
                 .orElse(false);
@@ -293,18 +66,18 @@ public class PaymentService {
         if (orderPaid) {
             throw new RuntimeException("Заказ уже оплачен");
         }
-        // ===== КОНЕЦ НОВОЙ ПРОВЕРКИ =====
 
-        // Проверяем или создаем счет
+
+
         CompanyAccount payerAccount = accountRepository.findByAccountNumber(request.getAccountNumber())
                 .orElse(null);
 
-        // Если счета нет в системе - создаем его
+
         if (payerAccount == null) {
             log.info("Счет {} не найден в системе, создаем новый для компании {} (ИНН: {})",
                     request.getAccountNumber(), actualCompanyName, actualInn);
 
-            // Проверяем, что указаны необходимые поля для создания счета
+
             if (request.getBik() == null || request.getBik().isEmpty()) {
                 throw new RuntimeException("Для создания нового счета необходимо указать БИК");
             }
@@ -312,7 +85,7 @@ public class PaymentService {
                 throw new RuntimeException("Для создания нового счета необходимо указать название банка");
             }
 
-            // Создаем новый счет (не основной)
+
             payerAccount = accountService.createAccount(
                     actualInn,
                     actualCompanyName,
@@ -324,7 +97,7 @@ public class PaymentService {
             log.info("Новый счет создан: {}, баланс: {} руб",
                     payerAccount.getAccountNumber(), payerAccount.getBalance());
         } else {
-            // Счет существует - проверяем принадлежность
+
             log.info("Счет {} найден в системе, баланс: {} руб",
                     request.getAccountNumber(), payerAccount.getBalance());
 
@@ -335,21 +108,21 @@ public class PaymentService {
             }
         }
 
-        // Проверяем достаточно ли средств на счете
+
         if (payerAccount.getBalance().compareTo(request.getAmount()) < 0) {
             throw new RuntimeException(String.format(
                     "Недостаточно средств на счете %s. Доступно: %.2f руб, требуется: %.2f руб",
                     request.getAccountNumber(), payerAccount.getBalance(), request.getAmount()));
         }
 
-        // Получаем счет РЖД из БД
+
         CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
                 .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных"));
 
         log.info("Счет РЖД для зачисления: {}, баланс до операции: {} руб",
                 rzdAccount.getAccountNumber(), rzdAccount.getBalance());
 
-        // Выполняем перевод денег
+
         AccountService.TransferResult transfer = accountService.transferMoney(
                 payerAccount.getAccountNumber(),
                 rzdAccount.getAccountNumber(),
@@ -361,14 +134,14 @@ public class PaymentService {
             throw new RuntimeException("Ошибка перевода: " + transfer.getMessage());
         }
 
-        // Создаем платеж
+
         Payment payment = new Payment();
         payment.setOrderId(request.getOrderId());
         payment.setAmount(request.getAmount());
         payment.setStatus(PaymentStatus.SUCCEEDED);
         payment.setPaymentMethod(request.getPaymentMethod());
 
-        // Заполняем корпоративные реквизиты
+
         payment.setCompanyName(actualCompanyName);
         payment.setInn(actualInn);
         payment.setKpp(request.getKpp());
@@ -378,13 +151,13 @@ public class PaymentService {
         payment.setBankName(payerAccount.getBankName());
         payment.setPaymentPurpose(request.getPaymentPurpose());
 
-        // Генерируем номера
+
         payment.setPaymentId(generatePaymentId());
         payment.setPaymentDocument(generatePaymentDocumentNumber());
         payment.setPaymentDate(OffsetDateTime.now());
         payment.setPaidAt(OffsetDateTime.now());
 
-        // Сохраняем информацию о переводе
+
         String metadata = String.format(
                 "Перевод со счета %s (баланс был: %.2f, стал: %.2f) на счет РЖД %s (баланс был: %.2f, стал: %.2f). Сумма: %.2f",
                 transfer.getFromAccountNumber(),
@@ -399,7 +172,7 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-        // Обновляем статус заказа
+
         if (savedPayment.getOrderId() != null) {
             orderRepository.findById(savedPayment.getOrderId()).ifPresent(order -> {
                 order.setStatus(OrderStatus.оплачен);
@@ -408,7 +181,7 @@ public class PaymentService {
             });
         }
 
-        // Кэшируем в Redis
+
         cachePaymentByInn(savedPayment);
 
         log.info("Платеж успешно создан: id={}, документ={}, сумма={}, статус={}",
@@ -421,15 +194,12 @@ public class PaymentService {
     private String generatePaymentId() {
         return "pay_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
-    /**
-     * Обработка вебхука от банка/платежной системы
-     */
     @Transactional
     public PaymentResponse handleBankWebhook(PaymentWebhookRequest request) {
         log.info("Обработка банковского вебхука: paymentId={}, status={}, inn={}",
                 request.getPaymentId(), request.getStatus(), request.getInn());
 
-        // Защита от дублей через Redis
+
         String idempotencyKey = PAYMENT_IDEMPOTENCY_KEY + request.getPaymentId();
         Boolean isProcessed = redisTemplate.opsForValue()
                 .setIfAbsent(idempotencyKey, "processed", 24, TimeUnit.HOURS);
@@ -440,7 +210,7 @@ public class PaymentService {
         }
 
         try {
-            // Ищем платеж по paymentId или по ИНН+сумме
+
             Payment payment = paymentRepository.findByPaymentId(request.getPaymentId())
                     .orElseGet(() -> {
                         if (request.getInn() != null && request.getAmount() != null) {
@@ -453,7 +223,7 @@ public class PaymentService {
                         throw new RuntimeException("Недостаточно данных для поиска платежа");
                     });
 
-            // Обновляем статус
+
             switch (request.getStatus()) {
                 case "succeeded":
                     payment.setStatus(PaymentStatus.SUCCEEDED);
@@ -467,12 +237,12 @@ public class PaymentService {
                     log.info("Платеж от {} (ИНН: {}) успешно завершен",
                             payment.getCompanyName(), payment.getInn());
 
-                    // ДОБАВЛЯЕМ: Обновление статуса заказа на "оплачен"
+
                     if (payment.getOrderId() != null) {
                         Order order = orderRepository.findById(payment.getOrderId())
                                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + payment.getOrderId()));
 
-                        // Проверяем текущий статус и обновляем
+
                         OrderStatus oldStatus = order.getStatus();
                         order.setStatus(OrderStatus.оплачен);
                         orderRepository.save(order);
@@ -499,7 +269,7 @@ public class PaymentService {
                     break;
             }
 
-            // Обновляем реквизиты, если пришли
+
             if (request.getPaymentId() != null) {
                 payment.setPaymentId(request.getPaymentId());
             }
@@ -508,21 +278,19 @@ public class PaymentService {
             return convertToResponse(savedPayment);
 
         } catch (Exception e) {
-            // В случае ошибки удаляем ключ идемпотентности
+
             redisTemplate.delete(idempotencyKey);
             throw e;
         }
     }
 
-    /**
-     * Отправка вебхука об успешной оплате (вызывается после списания денег)
-     */
+
     @Transactional
     public void sendSuccessWebhook(UUID paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException("Платеж не найден"));
 
-        // Создаем вебхук
+
         PaymentWebhookRequest webhook = new PaymentWebhookRequest();
         webhook.setPaymentId("bank_real_" + System.currentTimeMillis());
         webhook.setOrderId(payment.getOrderId());
@@ -533,32 +301,27 @@ public class PaymentService {
         webhook.setPaymentDocument("ПП-" + System.currentTimeMillis());
         webhook.setPaymentDate(OffsetDateTime.now());
 
-        // Отправляем в себя (имитация вебхука от банка)
+
         PaymentResponse response = handleBankWebhook(webhook);
 
         log.info("Вебхук об успешной оплате отправлен для платежа {}", paymentId);
     }
 
-    /**
-     * Проверка, оплачен ли заказ
-     */
+
     @Transactional(readOnly = true)
     public boolean isOrderPaid(UUID orderId) {
-        // Проверяем статус заказа напрямую
+
         return orderRepository.findById(orderId)
                 .map(order -> order.getStatus() == OrderStatus.оплачен)
                 .orElse(false);
     }
 
-    /**
-     * Альтернативный метод проверки по платежам
-     */
     @Transactional(readOnly = true)
     public boolean isOrderPaidByPayments(UUID orderId) {
         return paymentRepository.existsByOrderIdAndStatus(orderId, PaymentStatus.SUCCEEDED);
     }
 
-    // Остальные методы без изменений...
+
     private String generatePaymentDocumentNumber() {
         return String.format("РЖД-%d-%03d",
                 System.currentTimeMillis() / 1000,
@@ -588,10 +351,10 @@ public class PaymentService {
                     .collect(Collectors.toList());
         }
 
-        // Если нет в Redis - ищем в БД
+
         List<Payment> payments = paymentRepository.findByInn(inn);
 
-        // Сохраняем в Redis
+
         payments.forEach(this::cachePaymentByInn);
 
         return payments.stream()

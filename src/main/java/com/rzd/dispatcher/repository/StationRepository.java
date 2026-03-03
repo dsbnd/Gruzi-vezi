@@ -13,7 +13,7 @@ public class StationRepository {
     private JdbcTemplate jdbcTemplate;
 
     public List<Map<String, Object>> findStationsWithFreeWagons(String query) {
-        // Используем ILIKE для регистронезависимого поиска
+        
         String sql = "SELECT DISTINCT current_station as name " +
                 "FROM wagons " +
                 "WHERE current_station ILIKE ? " +

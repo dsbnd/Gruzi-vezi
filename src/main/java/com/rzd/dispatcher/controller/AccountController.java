@@ -21,9 +21,6 @@ public class AccountController {
 
     private final AccountService accountService;
 
-    /**
-     * Создать новый счет для компании
-     */
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(@RequestBody CreateAccountRequest request) {
         CompanyAccount account = accountService.createAccount(
@@ -36,9 +33,6 @@ public class AccountController {
         return ResponseEntity.ok(mapToResponse(account));
     }
 
-    /**
-     * Получить все счета компании по ИНН
-     */
     @GetMapping("/company/{inn}")
     public ResponseEntity<List<AccountResponse>> getCompanyAccounts(@PathVariable String inn) {
         List<CompanyAccount> accounts = accountService.getAccountsByInn(inn);
@@ -49,28 +43,18 @@ public class AccountController {
         );
     }
 
-    /**
-     * Получить счет по номеру
-     */
     @GetMapping("/{accountNumber}")
     public ResponseEntity<AccountResponse> getAccount(@PathVariable String accountNumber) {
         CompanyAccount account = accountService.getAccountByNumber(accountNumber);
         return ResponseEntity.ok(mapToResponse(account));
     }
 
-
-    /**
-     * Получить баланс счета
-     */
     @GetMapping("/{accountNumber}/balance")
     public ResponseEntity<BigDecimal> getBalance(@PathVariable String accountNumber) {
         BigDecimal balance = accountService.getBalance(accountNumber);
         return ResponseEntity.ok(balance);
     }
 
-    /**
-     * Выполнить перевод между счетами
-     */
     @PostMapping("/transfer")
     public ResponseEntity<TransferResponse> transferMoney(@RequestBody TransferRequest request) {
         AccountService.TransferResult result = accountService.transferMoney(

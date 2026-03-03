@@ -9,34 +9,34 @@ import java.util.UUID;
 @Builder
 public class WagonAvailabilityResponse {
 
-    // Основная информация о вагоне
-    private UUID wagonId;                 // ID вагона
-    private String wagonNumber;            // Номер вагона
-    private String wagonType;              // Тип вагона (крытый, полувагон и т.д.)
+    
+    private UUID wagonId;                 
+    private String wagonNumber;            
+    private String wagonType;              
 
-    // Технические характеристики
-    private Integer maxWeightKg;           // Макс. грузоподъемность (кг)
-    private Integer maxVolumeM3;           // Макс. объем (м³)
-    private String currentStation;         // Текущая станция
+    
+    private Integer maxWeightKg;           
+    private Integer maxVolumeM3;           
+    private String currentStation;         
 
-    // Информация о доступности
-    private Boolean isAvailable;           // Доступен ли
-    private String availabilityStatus;      // Статус доступности (свободен, занят и т.д.)
+    
+    private Boolean isAvailable;           
+    private String availabilityStatus;      
 
-    // Если вагон не на станции погрузки
-    private Integer distanceToStation;      // Расстояние до станции погрузки (км)
-    private Integer estimatedArrivalHours;  // Примерное время подачи (часов)
+    
+    private Integer distanceToStation;      
+    private Integer estimatedArrivalHours;  
 
-    // Рейтинг соответствия
-    private Integer matchPercentage;        // Процент соответствия (0-100)
-    private String recommendation;          // Рекомендация (ИДЕАЛЬНО, ХОРОШО и т.д.)
+    
+    private Integer matchPercentage;        
+    private String recommendation;          
 
-    // Цена
-    private BigDecimal estimatedPrice;      // Примерная цена
-    private String priceUnit;               // Единица цены (RUB)
+    
+    private BigDecimal estimatedPrice;      
+    private String priceUnit;               
 
-    // Дополнительная информация
-    private String ownerInfo;               // Информация о владельце
-    private String lastMaintenanceDate;     // Дата последнего ТО
-    private String maintenanceStatus;       // Статус ТО
+    
+    private String ownerInfo;               
+    private String lastMaintenanceDate;     
+    private String maintenanceStatus;       
 }

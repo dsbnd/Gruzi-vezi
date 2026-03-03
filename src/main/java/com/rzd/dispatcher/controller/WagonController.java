@@ -26,7 +26,7 @@ public class WagonController {
         return ResponseEntity.ok(wagons);
     }
 
-    // ДОБАВЛЯЕМ ЭНДПОИНТ ДЛЯ РЕЗЕРВИРОВАНИЯ
+
     @PostMapping("/{wagonId}/reserve")
     public ResponseEntity<String> reserveWagon(
             @PathVariable UUID wagonId,
@@ -41,7 +41,7 @@ public class WagonController {
         }
     }
 
-    // ДОБАВЛЯЕМ ЭНДПОИНТ ДЛЯ ОСВОБОЖДЕНИЯ
+
     @PostMapping("/{wagonId}/release")
     public ResponseEntity<String> releaseWagon(@PathVariable UUID wagonId) {
         wagonSearchService.releaseWagon(wagonId);

@@ -35,15 +35,13 @@ public class WagonSearchService {
 
     private static final String WAGON_RESERVATION_KEY = "wagon:reserved:";
 
-    /**
-     * ОСНОВНОЙ МЕТОД: Поиск доступных вагонов под заявку
-     */
+
     @Transactional(readOnly = true)
     public List<WagonAvailabilityResponse> findAvailableWagons(WagonSearchRequest request) {
         log.info("Поиск вагонов: станция={}, вес={}кг, тип={}",
                 request.getDepartureStation(), request.getWeightKg(), request.getPreferredWagonType());
 
-        // 1. Сначала ищем свободные вагоны на станции
+
         List<Wagon> wagonsOnStation = wagonRepository.findAvailableWagons(
                 request.getDepartureStation(),
                 request.getWeightKg(),
@@ -58,12 +56,12 @@ public class WagonSearchService {
 
         List<WagonAvailabilityResponse> result = new ArrayList<>();
 
-        // 2. Фильтруем по типу вагона и проверяем доступность по датам
-        // 2. Фильтруем по типу вагона и проверяем доступность по датам
+
+
         for (Wagon wagon : wagonsOnStation) {
             log.info("Проверка вагона: {}", wagon.getWagonNumber());
 
-            // Фильтр по типу вагона, если указан
+
             if (request.getPreferredWagonType() != null) {
                 log.info("  Тип вагона: {}, ищем: {}",
                         wagon.getWagonType().name(), request.getPreferredWagonType());
@@ -73,13 +71,13 @@ public class WagonSearchService {
                 }
             }
 
-            // Проверка резервации в Redis
+
             if (isWagonReserved(wagon.getId())) {
                 log.info(" Вагон зарезервирован в Redis");
                 continue;
             }
 
-            // Проверка доступности по датам
+
             OffsetDateTime requiredDate = convertToOffsetDateTime(request.getRequiredDepartureDate());
             log.info("  Проверка доступности на дату: {}", requiredDate);
 
@@ -92,14 +90,14 @@ public class WagonSearchService {
             }
         }
 
-        // 3. Если мало вагонов - ищем на соседних станциях
+
         if (request.isAllowAlternativeStations() && result.size() < 3) {
             List<Wagon> nearbyWagons = findWagonsOnNearbyStations(request);
             for (Wagon wagon : nearbyWagons) {
                 if (result.size() >= 10) break;
 
                 if (isWagonReserved(wagon.getId())) {
-                    continue; // Пропускаем зарезервированные
+                    continue;
                 }
 
                 WagonAvailabilityResponse response = buildWagonResponseWithDistance(wagon, request);
@@ -107,21 +105,18 @@ public class WagonSearchService {
             }
         }
 
-        // 4. Сортируем по проценту соответствия
+
         result.sort((a, b) -> b.getMatchPercentage().compareTo(a.getMatchPercentage()));
 
         log.info("Найдено {} доступных вагонов", result.size());
         return result;
     }
 
-    /**
-     * НОВЫЙ МЕТОД: Резервирование вагона
-     */
     @Transactional
     public boolean reserveWagon(UUID wagonId, UUID orderId, int minutes) {
         log.info("Резервирование вагона {} для заказа {} на {} минут", wagonId, orderId, minutes);
 
-        // 1. Проверяем в Redis, не зарезервирован ли уже
+
         String redisKey = WAGON_RESERVATION_KEY + wagonId;
         Boolean isReserved = redisTemplate.opsForValue()
                 .setIfAbsent(redisKey, orderId.toString(), minutes, TimeUnit.MINUTES);
@@ -132,7 +127,7 @@ public class WagonSearchService {
         }
 
         try {
-            // 2. Обновляем статус в БД - ИСПОЛЬЗУЕМ ENUM!
+
             Wagon wagon = wagonRepository.findById(wagonId)
                     .orElseThrow(() -> new RuntimeException("Вагон не найден"));
 
@@ -142,15 +137,15 @@ public class WagonSearchService {
                 return false;
             }
 
-            // ИСПРАВЛЕНО: используем enum WagonStatus.забронирован вместо строки
+
             wagon.setStatus(WagonStatus.забронирован);
             wagonRepository.save(wagon);
 
-            // 3. Создаем запись в расписании - тоже используем enum
+
             WagonSchedule schedule = new WagonSchedule();
             schedule.setWagon(wagon);
             schedule.setOrderId(orderId);
-            schedule.setStatus("зарезервирован"); // это строка, тут нормально
+            schedule.setStatus("зарезервирован");
             schedule.setDepartureStation("ожидает");
             schedule.setArrivalStation("ожидает");
             scheduleRepository.save(schedule);
@@ -164,25 +159,23 @@ public class WagonSearchService {
             throw e;
         }
     }
-    /**
-     * НОВЫЙ МЕТОД: Освобождение вагона
-     */
+
     @Transactional
     public void releaseWagon(UUID wagonId) {
         log.info("Освобождение вагона {}", wagonId);
 
-        // 1. Удаляем из Redis
+
         String redisKey = WAGON_RESERVATION_KEY + wagonId;
         redisTemplate.delete(redisKey);
 
-        // 2. Обновляем статус в БД
+
         Wagon wagon = wagonRepository.findById(wagonId)
                 .orElseThrow(() -> new RuntimeException("Вагон не найден"));
 
         wagon.setStatus(WagonStatus.свободен);
         wagonRepository.save(wagon);
 
-        // 3. Обновляем расписание
+
         List<WagonSchedule> schedules = scheduleRepository.findByWagonId(wagonId);
         for (WagonSchedule schedule : schedules) {
             if ("зарезервирован".equals(schedule.getStatus())) {
@@ -195,9 +188,6 @@ public class WagonSearchService {
         log.info("Вагон {} освобожден", wagonId);
     }
 
-    /**
-     * НОВЫЙ МЕТОД: Проверка, зарезервирован ли вагон
-     */
     private boolean isWagonReserved(UUID wagonId) {
         String redisKey = WAGON_RESERVATION_KEY + wagonId;
         Boolean hasKey = redisTemplate.hasKey(redisKey);

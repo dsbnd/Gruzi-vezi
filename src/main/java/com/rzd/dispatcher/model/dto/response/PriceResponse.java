@@ -25,7 +25,7 @@ public class PriceResponse {
         private String code;
         private String description;
         private String details;
-        private String category; // SAFETY, LOGISTICS, DOCUMENTS, MONITORING
+        private String category;
         private String icon;
         private BigDecimal price;
         private String recommendationReason;
