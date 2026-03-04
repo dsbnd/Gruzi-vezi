@@ -7,6 +7,7 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -76,7 +77,11 @@ public class AccountService {
     }
 
 
-@Transactional
+    @Transactional(
+            isolation = Isolation.SERIALIZABLE,
+            rollbackFor = Exception.class,
+            timeout = 30
+    )
 public TransferResult transferMoney(String fromAccountNumber, String toAccountNumber,
                                     BigDecimal amount, String description) {
     log.info("Счет отправителя: {}", fromAccountNumber);
