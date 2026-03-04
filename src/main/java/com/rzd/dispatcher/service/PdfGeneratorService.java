@@ -21,8 +21,9 @@ public class PdfGeneratorService {
         PdfWriter.getInstance(document, out);
 
         document.open();
+        byte[] fontData = new ClassPathResource("a3arialrusnormal.ttf").getInputStream().readAllBytes();
+        BaseFont bf = BaseFont.createFont("a3arialrusnormal.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontData, null);
 
-        BaseFont bf = BaseFont.createFont(FONT_PATH, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
         Font fontTitle = new Font(bf, 14, Font.BOLD);
         Font fontBold = new Font(bf, 9, Font.BOLD);
         Font fontNormal = new Font(bf, 9, Font.NORMAL);

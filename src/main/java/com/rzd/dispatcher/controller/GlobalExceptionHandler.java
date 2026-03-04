@@ -1,4 +1,4 @@
-package com.rzd.dispatcher.security;
+package com.rzd.dispatcher.controller;
 
 import com.rzd.dispatcher.model.dto.response.ErrorResponse;
 import org.springframework.http.HttpStatus;
