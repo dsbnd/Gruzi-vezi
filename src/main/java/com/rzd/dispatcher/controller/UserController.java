@@ -31,14 +31,9 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser(Authentication authentication) {
-        // Достаем email из токена
         String email = authentication.getName();
-
-        // Ищем пользователя в БД
         var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-
-        // Собираем красивый ответ для фронтенда
         UserResponse response = UserResponse.builder()
                 .email(user.getEmail())
                 .companyName(user.getCompanyName())

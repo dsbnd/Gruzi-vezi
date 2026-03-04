@@ -24,7 +24,6 @@ public class PaymentResponse {
     @JsonProperty("payment_method")
     private String paymentMethod;
 
-    // Корпоративные поля
     @JsonProperty("company_name")
     private String companyName;
 

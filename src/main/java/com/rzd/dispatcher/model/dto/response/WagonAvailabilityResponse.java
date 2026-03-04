@@ -9,32 +9,25 @@ import java.util.UUID;
 @Builder
 public class WagonAvailabilityResponse {
 
-    
     private UUID wagonId;                 
     private String wagonNumber;            
-    private String wagonType;              
-
+    private String wagonType;
     
     private Integer maxWeightKg;           
     private Integer maxVolumeM3;           
-    private String currentStation;         
-
+    private String currentStation;
     
     private Boolean isAvailable;           
     private String availabilityStatus;      
 
-    
     private Integer distanceToStation;      
-    private Integer estimatedArrivalHours;  
-
+    private Integer estimatedArrivalHours;
     
     private Integer matchPercentage;        
-    private String recommendation;          
-
+    private String recommendation;
     
     private BigDecimal estimatedPrice;      
-    private String priceUnit;               
-
+    private String priceUnit;
     
     private String ownerInfo;               
     private String lastMaintenanceDate;     

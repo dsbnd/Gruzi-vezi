@@ -16,7 +16,6 @@ public class RefreshTokenService {
     private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7; 
     private static final String REDIS_KEY_PREFIX = "refresh_token:";
 
-    
     public String createRefreshToken(String email) {
         String refreshToken = UUID.randomUUID().toString();
         redisTemplate.opsForValue().set(
@@ -27,12 +26,10 @@ public class RefreshTokenService {
         return refreshToken;
     }
 
-    
     public String getEmailByRefreshToken(String token) {
         return (String) redisTemplate.opsForValue().get(REDIS_KEY_PREFIX + token);
     }
 
-    
     public void deleteRefreshToken(String token) {
         redisTemplate.delete(REDIS_KEY_PREFIX + token);
     }

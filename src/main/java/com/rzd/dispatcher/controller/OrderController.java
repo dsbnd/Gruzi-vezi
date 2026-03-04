@@ -30,11 +30,9 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request,
             Authentication authentication
     ) {
-        // Достаем email из JWT токена
         String userEmail = authentication.getName();
         
         UUID orderId = orderService.createDraftOrder(request, userEmail);
-        
         return ResponseEntity.ok(Map.of(
                 "orderId", orderId, 
                 "message", "Заявка (черновик) успешно создана"
@@ -45,30 +43,19 @@ public class OrderController {
             @PathVariable UUID orderId,
             Authentication authentication
     ) {
-        // Получаем email текущего пользователя
         String userEmail = authentication.getName();
-
-        // Ищем заказ
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
 
-        // Проверяем, что заказ принадлежит этому пользователю (безопасность)
         if (!order.getUser().getEmail().equals(userEmail)) {
             throw new RuntimeException("У вас нет доступа к этому заказу");
         }
-
-        // Преобразуем в DTO и возвращаем
         return ResponseEntity.ok(OrderResponse.fromOrder(order));
     }
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getMyOrders(Authentication authentication) {
-        // Достаем email из токена
         String email = authentication.getName();
-
-        // Достаем из БД все заявки этого пользователя
         List<Order> userOrders = orderRepository.findByUser_Email(email);
-
-        // Превращаем их в DTO, используя ТВОЙ готовый метод fromOrder!
         List<OrderResponse> responseList = userOrders.stream()
                 .map(OrderResponse::fromOrder)
                 .toList();

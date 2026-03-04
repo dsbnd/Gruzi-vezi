@@ -48,7 +48,6 @@ public class PdfGeneratorService {
         headerTable.addCell(titleCell);
         document.add(headerTable);
 
-        // 2. Банковская сетка (ГОСТ)
         PdfPTable bankGrid = new PdfPTable(4);
         bankGrid.setWidthPercentage(100);
         bankGrid.setWidths(new float[]{2, 1, 0.5f, 1.5f});
@@ -59,32 +58,29 @@ public class PdfGeneratorService {
 
         addCell(bankGrid, "Банк получателя", fontSmall, 2, 1);
         addCell(bankGrid, "Сч. №", fontNormal, 1, 1);
-        addCell(bankGrid, "40702810123456789012", fontNormal, 1, 1); // Твой счет РЖД
+        addCell(bankGrid, "40702810123456789012", fontNormal, 1, 1);
 
         addCell(bankGrid, "ИНН 7708503727", fontNormal, 1, 1);
         addCell(bankGrid, "КПП 770801001", fontNormal, 1, 1);
         addCell(bankGrid, "Сч. №", fontNormal, 1, 1);
-        addCell(bankGrid, "30101810400000000225", fontNormal, 1, 1); // Корр. счет
+        addCell(bankGrid, "30101810400000000225", fontNormal, 1, 1);
 
         addCell(bankGrid, "ОАО РЖД", fontNormal, 2, 1);
-        addCell(bankGrid, "", fontNormal, 1, 2); // Пустая ячейка для красоты
+        addCell(bankGrid, "", fontNormal, 1, 2); /
         addCell(bankGrid, "", fontNormal, 1, 2);
 
         addCell(bankGrid, "Получатель", fontSmall, 2, 1);
         document.add(bankGrid);
 
-        // 3. Номер счета
         Paragraph p = new Paragraph("\nСчет на оплату № " + payment.getPaymentDocument() + " от " + payment.getCreatedAt().toLocalDate(), fontTitle);
         p.setSpacingAfter(10f);
         document.add(p);
         document.add(new Chunk(new com.lowagie.text.pdf.draw.LineSeparator()));
 
-        // 4. Поставщик / Покупатель
         document.add(new Paragraph("Поставщик: ОАО РЖД, ИНН 7708503727, КПП 770801001, 107174, Москва г, Новая Басманная ул, дом № 2", fontNormal));
         document.add(new Paragraph("Покупатель: " + payment.getCompanyName() + ", ИНН " + payment.getInn() + ", " + (payment.getKpp() != null ? "КПП " + payment.getKpp() : ""), fontNormal));
         document.add(new Paragraph("\n"));
 
-        // 5. Таблица услуг
         PdfPTable mainTable = new PdfPTable(5);
         mainTable.setWidthPercentage(100);
         mainTable.setWidths(new float[]{0.5f, 5, 1, 1.5f, 1.5f});
@@ -115,10 +111,9 @@ public class PdfGeneratorService {
             byte[] signABytes = new ClassPathResource("signA.png").getInputStream().readAllBytes();
             Image sigA = Image.getInstance(signABytes);
             sigA.scaleToFit(100, 50);
-            sigA.setAbsolutePosition(90f, 470f); // Координаты X и Y
+            sigA.setAbsolutePosition(90f, 470f);
             document.add(sigA);
 
-            // Если вторая подпись называется signB.png
             byte[] signBBytes = new ClassPathResource("signB.png").getInputStream().readAllBytes();
             Image sigB = Image.getInstance(signBBytes);
             sigB.scaleToFit(100, 50);
@@ -155,7 +150,6 @@ public class PdfGeneratorService {
     }
 
     public byte[] generateContractPdf(Order order) throws DocumentException, IOException {
-        // Увеличиваем отступы для солидности
         Document document = new Document(PageSize.A4, 60, 40, 50, 50);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PdfWriter writer = PdfWriter.getInstance(document, out);
@@ -170,13 +164,11 @@ public class PdfGeneratorService {
         Font fontNormal = new Font(bf, 10, Font.NORMAL);
         Font fontSmall = new Font(bf, 8, Font.NORMAL);
 
-        // 1. Заголовок
         Paragraph title = new Paragraph("Договор об организации перевозок грузов железнодорожным транспортом", fontTitle);
         title.setAlignment(Element.ALIGN_CENTER);
         title.setSpacingAfter(20);
         document.add(title);
 
-        // 2. Место и дата
         PdfPTable datePlace = new PdfPTable(2);
         datePlace.setWidthPercentage(100);
         addBorderlessCell(datePlace, "г. Москва", fontNormal, Element.ALIGN_LEFT);
@@ -184,7 +176,6 @@ public class PdfGeneratorService {
         document.add(datePlace);
         document.add(new Paragraph("\n"));
 
-        // 3. Преамбула
         addText(document, String.format(
                 "Открытое акционерное общество «Российские железные дороги» (ОАО «РЖД»), именуемое в дальнейшем «Перевозчик», " +
                         "в лице начальника службы движения Харитоновой А.А., действующей на основании Доверенности №РЖД-124/д, с одной стороны, и " +
@@ -194,7 +185,6 @@ public class PdfGeneratorService {
                 order.getUser().getCompanyName(), order.getUser().getInn()
         ), fontNormal);
 
-        // 4. Разделы
         addSection(document, "1. Предмет договора", fontSection);
         addText(document, String.format(
                 "1.1. Перевозчик обязуется осуществить перевозку вверенного ему Грузоотправителем груза (%s, вес %d кг.) " +
@@ -217,7 +207,6 @@ public class PdfGeneratorService {
         addText(document, "4.1. За неисполнение или ненадлежащее исполнение обязательств по настоящему Договору Стороны несут ответственность в соответствии с законодательством РФ.", fontNormal);
         addText(document, "4.2. Перевозчик несет ответственность за сохранность груза после принятия его к перевозке и до выдачи его получателю, если не докажет, что утрата или повреждение груза произошли вследствие обстоятельств, которые Перевозчик не мог предотвратить.", fontNormal);
 
-        // Вставляем разрыв страницы
         document.newPage();
 
         addSection(document, "5. Форс-мажор", fontSection);
@@ -227,12 +216,10 @@ public class PdfGeneratorService {
         addText(document, "6.1. Настоящий Договор вступает в силу с момента его подписания и действует до полного исполнения Сторонами своих обязательств.", fontNormal);
         addText(document, "6.2. Все споры и разногласия, возникающие в процессе исполнения Договора, решаются путем переговоров, а при недостижении согласия — в Арбитражном суде г. Москвы.", fontNormal);
 
-        // 7. Реквизиты
         document.add(new Paragraph("\n\n7. Юридические адреса и реквизиты сторон\n\n", fontSection));
         PdfPTable footer = new PdfPTable(2);
         footer.setWidthPercentage(100);
 
-        // Левая колонка - РЖД
         PdfPCell rzdCell = new PdfPCell();
         rzdCell.setBorder(Rectangle.NO_BORDER);
         rzdCell.addElement(new Paragraph("Перевозчик:", fontSection));
@@ -255,13 +242,12 @@ public class PdfGeneratorService {
         byte[] signABytes = new ClassPathResource("signA.png").getInputStream().readAllBytes();
         Image sigA = Image.getInstance(signABytes);
         sigA.scaleToFit(100, 50);
-        sigA.setAbsolutePosition(70f, 440f); // Координаты X и Y
+        sigA.setAbsolutePosition(70f, 440f);
         document.add(sigA);
         document.close();
         return out.toByteArray();
     }
 
-    // Вспомогательные методы для чистоты кода
     private void addSection(Document doc, String title, Font font) throws DocumentException {
         Paragraph p = new Paragraph("\n" + title, font);
         p.setSpacingAfter(5);

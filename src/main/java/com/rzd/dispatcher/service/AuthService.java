@@ -26,7 +26,6 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
-        // Проверяем, нет ли уже такого пользователя
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Пользователь с таким email уже зарегистрирован!");
         }
@@ -46,7 +45,6 @@ public class AuthService {
 
         userRepository.save(user);
 
-        // Генерируем токены
         var jwtToken = jwtService.generateAccessToken(user.getEmail());
         var refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
 
@@ -57,7 +55,6 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-            // Пытаемся аутентифицировать пользователя
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
@@ -76,20 +73,18 @@ public class AuthService {
 
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         String requestRefreshToken = request.getRefreshToken();
-        
-        // Достаем email из Redis по рефреш токену
+
         String userEmail = refreshTokenService.getEmailByRefreshToken(requestRefreshToken);
 
         if (userEmail == null) {
             throw new RuntimeException("Refresh token is invalid or expired");
         }
 
-        // Если токен валидный, генерируем новый access токен
         var accessToken = jwtService.generateAccessToken(userEmail);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(requestRefreshToken) // Возвращаем старый рефреш, пока он не протух
+                .refreshToken(requestRefreshToken)
                 .build();
     }
 

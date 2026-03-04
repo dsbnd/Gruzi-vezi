@@ -29,9 +29,6 @@ public class OrderService {
     private final OrderValidator orderValidator;
     private final PdfGeneratorService pdfGeneratorService;
 
-
-
-
     @Transactional
     public UUID createDraftOrder(CreateOrderRequest request, String userEmail) {
         orderValidator.validate(request);
@@ -42,7 +39,7 @@ public class OrderService {
         order.setUser(user);
         order.setDepartureStation(request.getDepartureStation());
         order.setDestinationStation(request.getDestinationStation());
-        order.setRequestedWagonType(request.getRequestedWagonType()); // Сохраняем род вагона
+        order.setRequestedWagonType(request.getRequestedWagonType());
         order.setStatus(OrderStatus.черновик);
 
         Cargo cargo = new Cargo();
@@ -51,7 +48,6 @@ public class OrderService {
         cargo.setVolumeM3(request.getCargo().getVolumeM3());
         cargo.setPackagingType(request.getCargo().getPackagingType());
 
-        // Связываем
         order.setCargo(cargo);
         cargo.setOrder(order);
 
@@ -70,8 +66,6 @@ public class OrderService {
         log.info("Статус заказа {} обновлен на: {}", orderId, newStatus);
     }
 
-
-
     @Transactional(readOnly = true)
     public byte[] generateOrderContract(UUID orderId) {
         Order order = orderRepository.findById(orderId)
@@ -84,7 +78,6 @@ public class OrderService {
             throw new RuntimeException("Ошибка генерации PDF");
         }
     }
-
 
     @Transactional
     public Order confirmWagonSelection(UUID orderId, UUID wagonId, BigDecimal totalPrice, String userEmail) {

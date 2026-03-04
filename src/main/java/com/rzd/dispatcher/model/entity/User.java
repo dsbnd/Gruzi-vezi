@@ -55,11 +55,11 @@ public class User implements org.springframework.security.core.userdetails.UserD
     }
 
     public String getPassword() {
-        return passwordHash; // Spring Security будет использовать наше поле passwordHash
+        return passwordHash;
     }
 
     public String getUsername() {
-        return email; // В качестве логина используем email
+        return email;
     }
 
     public boolean isAccountNonExpired() { return true; }

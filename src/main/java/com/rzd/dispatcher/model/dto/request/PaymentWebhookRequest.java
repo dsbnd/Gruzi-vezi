@@ -25,7 +25,6 @@ public class PaymentWebhookRequest {
     @JsonProperty("error_message")
     private String errorMessage;
 
-    // Корпоративные поля
     @JsonProperty("inn")
     private String inn;
 

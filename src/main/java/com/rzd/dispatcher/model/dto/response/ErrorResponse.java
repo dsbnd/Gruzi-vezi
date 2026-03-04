@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ErrorResponse {
-    private int status;         // HTTP статус (400, 401 и т.д.)
-    private String message;     // Понятное сообщение для пользователя
-    private LocalDateTime time; // Время ошибки
+    private int status;
+    private String message;
+    private LocalDateTime time;
 }
