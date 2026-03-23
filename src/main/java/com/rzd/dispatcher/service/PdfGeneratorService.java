@@ -66,7 +66,7 @@ public class PdfGeneratorService {
         addCell(bankGrid, "30101810400000000225", fontNormal, 1, 1);
 
         addCell(bankGrid, "ОАО РЖД", fontNormal, 2, 1);
-        addCell(bankGrid, "", fontNormal, 1, 2); /
+        addCell(bankGrid, "", fontNormal, 1, 2);
         addCell(bankGrid, "", fontNormal, 1, 2);
 
         addCell(bankGrid, "Получатель", fontSmall, 2, 1);
