@@ -49,4 +49,5 @@ public interface WagonRepository extends JpaRepository<Wagon, UUID> {
     
     @Query("SELECT w.status, COUNT(w) FROM Wagon w GROUP BY w.status")
     List<Object[]> getWagonStatistics();
+
 }

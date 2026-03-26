@@ -408,4 +408,72 @@ public class PaymentService {
             throw new RuntimeException("Не удалось создать PDF документ");
         }
     }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getAllPayments() {
+        return paymentRepository.findAll().stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public PaymentResponse refundPayment(UUID paymentId) {
+        log.info("Инициация возврата для платежа: {}", paymentId);
+
+        // 1. Находим платеж
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new RuntimeException("Платеж не найден"));
+
+        // Возврат возможен только для успешных транзакций
+        if (payment.getStatus() != Payment.PaymentStatus.SUCCEEDED) {
+            throw new RuntimeException("Возврат возможен только для успешно завершенных платежей. Текущий статус: " + payment.getStatus());
+        }
+
+        // 2. Находим счет РЖД (откуда будем списывать деньги)
+        CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
+                .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных"));
+
+        // 3. Выполняем обратный перевод средств
+        // accountService.transferMoney(от_кого, кому, сколько, назначение)
+        AccountService.TransferResult transfer = accountService.transferMoney(
+                rzdAccount.getAccountNumber(), // Списываем со счета РЖД
+                payment.getAccountNumber(),    // Зачисляем на счет клиента (сохраненный в платеже)
+                payment.getAmount(),
+                "Возврат средств по отмененному платежу: " + payment.getPaymentId()
+        );
+
+        if (!transfer.isSuccess()) {
+            throw new RuntimeException("Ошибка возврата средств: " + transfer.getMessage());
+        }
+
+        // 4. Обновляем статус и метаданные платежа
+        payment.setStatus(Payment.PaymentStatus.REFUNDED);
+
+        String refundMetadata = String.format(
+                "\n[ВОЗВРАТ %s] Перевод со счета РЖД %s на счет %s. Сумма: %.2f",
+                OffsetDateTime.now().toString(),
+                transfer.getFromAccountNumber(),
+                transfer.getToAccountNumber(),
+                transfer.getAmount()
+        );
+
+        // Дописываем информацию о возврате к существующим метаданным
+        String currentMetadata = payment.getMetadata() != null ? payment.getMetadata() : "";
+        payment.setMetadata(currentMetadata + refundMetadata);
+
+        Payment updatedPayment = paymentRepository.save(payment);
+        log.info("Возврат успешно проведен. Платеж {} переведен в статус REFUNDED", payment.getId());
+
+        // 5. Обновляем статус заказа (откатываем до "ожидает оплаты")
+        if (updatedPayment.getOrderId() != null) {
+            orderRepository.findById(updatedPayment.getOrderId()).ifPresent(order -> {
+                order.setStatus(OrderStatus.ожидает_оплаты);
+                orderRepository.save(order);
+                log.info("Статус заказа {} изменен на 'ожидает_оплаты'", order.getId());
+            });
+        }
+
+        return convertToResponse(updatedPayment);
+    }
+
 }

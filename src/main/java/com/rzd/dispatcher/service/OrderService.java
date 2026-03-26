@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.service;
 
 import com.rzd.dispatcher.model.dto.request.CreateOrderRequest;
+import com.rzd.dispatcher.model.dto.response.OrderResponse;
 import com.rzd.dispatcher.model.entity.Cargo;
 import com.rzd.dispatcher.model.entity.Order;
 import com.rzd.dispatcher.model.entity.User;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -97,5 +99,12 @@ public class OrderService {
 
         return orderRepository.save(order);
 
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getAllOrders() {
+        return orderRepository.findAll().stream()
+                .map(OrderResponse::fromOrder)
+                .toList();
     }
 }
