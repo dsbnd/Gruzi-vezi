@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,7 +32,15 @@ public class PaymentController {
 
         return ResponseEntity.ok(convertToResponse(payment));
     }
+    @PostMapping("/individual/confirm")
+    public ResponseEntity<PaymentResponse> confirmIndividualPayment(
+            @RequestParam String paymentDocument,
+            @RequestParam BigDecimal amount,
+            @RequestParam String inn) {
 
+        PaymentResponse response = paymentService.confirmIndividualPayment(paymentDocument, amount, inn);
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/search/by-inn")
     public ResponseEntity<List<PaymentResponse>> findPaymentsByInn(

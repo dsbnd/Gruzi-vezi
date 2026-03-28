@@ -7,6 +7,16 @@ import lombok.Data;
 @Builder
 public class UserResponse {
     private String email;
+    private String userType;
+    private String displayName;
+
+    // Для юрлиц
     private String companyName;
     private String inn;
+
+    // Для физлиц
+    private String firstName;
+    private String lastName;
+    private String patronymic;
+    private String phone;
 }

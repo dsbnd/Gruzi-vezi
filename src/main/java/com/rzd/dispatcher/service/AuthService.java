@@ -10,6 +10,7 @@ import com.rzd.dispatcher.repository.UserRepository;
 import com.rzd.dispatcher.security.JwtService;
 import com.rzd.dispatcher.security.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -26,24 +28,58 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
+
+        request.validate();
+
+
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Пользователь с таким email уже зарегистрирован!");
         }
 
-        String innStr = String.valueOf(request.getInn());
-        if (innStr.length() != 10 && innStr.length() != 12) {
-            throw new RuntimeException("ИНН должен содержать 10 или 12 цифр!");
-        }
-
-        var user = new User();
+        User user = new User();
         user.setEmail(request.getEmail());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        user.setCompanyName(request.getCompanyName());
-
-        user.setInn(request.getInn());
+        user.setUserType(request.getUserType());
         user.setRole(Role.USER);
 
+
+        if ("LEGAL_ENTITY".equals(request.getUserType())) {
+
+            user.setCompanyName(request.getCompanyName());
+            user.setInn(request.getInn());
+            log.info("Регистрация юридического лица: {}, ИНН: {}",
+                    request.getCompanyName(), request.getInn());
+        } else {
+
+            user.setLastName(request.getLastName());
+            user.setFirstName(request.getFirstName());
+            user.setPatronymic(request.getPatronymic());
+            user.setPhone(request.getPhone());
+            user.setPassportSeries(request.getPassportSeries());
+            user.setPassportNumber(request.getPassportNumber());
+            user.setPassportIssuedBy(request.getPassportIssuedBy());
+            user.setPassportIssuedDate(request.getPassportIssuedDate());
+            user.setRegistrationAddress(request.getRegistrationAddress());
+            user.setSnils(request.getSnils());
+            user.setInn(request.getInn());
+
+
+            String fullName = String.format("%s %s %s",
+                    request.getLastName(),
+                    request.getFirstName(),
+                    request.getPatronymic() != null ? request.getPatronymic() : ""
+            ).trim();
+            user.setCompanyName(fullName);
+
+            log.info("Регистрация физического лица: {} {}, ИНН: {}, СНИЛС: {}",
+                    request.getLastName(),
+                    request.getFirstName(),
+                    request.getInn(),
+                    request.getSnils());
+        }
+
         userRepository.save(user);
+        log.info("Пользователь успешно сохранен в БД с ID: {}", user.getId());
 
         var jwtToken = jwtService.generateAccessToken(user.getEmail());
         var refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
@@ -55,12 +91,17 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
+        log.info("Попытка входа пользователя: {}", request.getEmail());
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
         var user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден в БД"));
+
+        log.info("Пользователь успешно вошел: {}, тип: {}",
+                user.getEmail(), user.getUserType());
 
         var jwtToken = jwtService.generateAccessToken(user.getEmail());
         var refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
@@ -77,8 +118,11 @@ public class AuthService {
         String userEmail = refreshTokenService.getEmailByRefreshToken(requestRefreshToken);
 
         if (userEmail == null) {
+            log.warn("Попытка обновления токена с недействительным refresh token");
             throw new RuntimeException("Refresh token is invalid or expired");
         }
+
+        log.info("Обновление токена для пользователя: {}", userEmail);
 
         var accessToken = jwtService.generateAccessToken(userEmail);
 
@@ -89,6 +133,7 @@ public class AuthService {
     }
 
     public void logout(String refreshToken) {
+        log.info("Выход пользователя, удаление refresh token");
         refreshTokenService.deleteRefreshToken(refreshToken);
     }
 }

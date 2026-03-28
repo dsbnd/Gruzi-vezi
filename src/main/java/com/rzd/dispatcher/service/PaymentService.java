@@ -7,6 +7,7 @@ import com.rzd.dispatcher.model.entity.Payment.PaymentStatus;
 import com.rzd.dispatcher.model.dto.request.PaymentRequest;
 import com.rzd.dispatcher.model.dto.request.PaymentWebhookRequest;
 import com.rzd.dispatcher.model.dto.response.PaymentResponse;
+import com.rzd.dispatcher.model.entity.User;
 import com.rzd.dispatcher.model.enums.OrderStatus;
 import com.rzd.dispatcher.repository.CompanyAccountRepository;
 import com.rzd.dispatcher.repository.OrderRepository;
@@ -48,16 +49,150 @@ public class PaymentService {
                 request.getInn(), request.getAmount(), request.getAccountNumber(),
                 request.getPaymentPurpose());
 
-
         var user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
 
+        if ("INDIVIDUAL".equals(user.getUserType())) {
+            return createIndividualPayment(request, user);
+        } else {
+            return createLegalEntityPayment(request, user);
+        }
+    }
 
-        String actualInn = user.getInn();
-        String actualCompanyName = user.getCompanyName();
+    private Payment createIndividualPayment(PaymentRequest request, User user) {
+        log.info("Создание платежа для физического лица: {}", user.getDisplayName());
 
-        log.info("ИНН из запроса: {}, ИНН из БД: {}", request.getInn(), actualInn);
+        
+        boolean orderPaid = orderRepository.findById(request.getOrderId())
+                .map(order -> order.getStatus() == OrderStatus.оплачен)
+                .orElse(false);
 
+        if (orderPaid) {
+            throw new RuntimeException("Заказ уже оплачен");
+        }
+
+        
+        CompanyAccount payerAccount = null;
+
+        
+        if (request.getAccountNumber() != null && !request.getAccountNumber().isEmpty()) {
+            payerAccount = accountRepository.findByAccountNumber(request.getAccountNumber())
+                    .orElse(null);
+        }
+
+        
+        if (payerAccount == null) {
+            log.info("Счет для физлица {} не найден, создаем новый", user.getDisplayName());
+
+            
+            if (request.getBik() == null || request.getBik().isEmpty()) {
+                throw new RuntimeException("Для оплаты необходимо указать БИК банка");
+            }
+            if (request.getBankName() == null || request.getBankName().isEmpty()) {
+                throw new RuntimeException("Для оплаты необходимо указать название банка");
+            }
+
+            payerAccount = accountService.createAccount(
+                    user.getInn(),
+                    user.getCompanyName(),
+                    request.getBik(),
+                    request.getBankName(),
+                    false
+            );
+
+            log.info("Создан новый счет для физлица: {}, баланс: {} руб",
+                    payerAccount.getAccountNumber(), payerAccount.getBalance());
+        }
+
+        
+        if (payerAccount.getBalance().compareTo(request.getAmount()) < 0) {
+            throw new RuntimeException(String.format(
+                    "Недостаточно средств на счете %s. Доступно: %.2f руб, требуется: %.2f руб. Пожалуйста, пополните счет.",
+                    payerAccount.getAccountNumber(), payerAccount.getBalance(), request.getAmount()));
+        }
+
+        
+        CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
+                .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных"));
+
+        log.info("Счет РЖД для зачисления: {}, баланс до операции: {} руб",
+                rzdAccount.getAccountNumber(), rzdAccount.getBalance());
+        log.info("Счет плательщика: {}, баланс до операции: {} руб",
+                payerAccount.getAccountNumber(), payerAccount.getBalance());
+
+        
+        TransferResult transfer = accountService.transferMoney(
+                payerAccount.getAccountNumber(),
+                rzdAccount.getAccountNumber(),
+                request.getAmount(),
+                "Оплата грузовой перевозки (физлицо): " + request.getPaymentPurpose()
+        );
+
+        if (!transfer.isSuccess()) {
+            throw new RuntimeException("Ошибка перевода средств: " + transfer.getMessage());
+        }
+
+        
+        Payment payment = new Payment();
+        payment.setOrderId(request.getOrderId());
+        payment.setAmount(request.getAmount());
+        payment.setStatus(PaymentStatus.SUCCEEDED);
+        payment.setPaymentMethod("BANK_TRANSFER");
+
+        
+        payment.setCompanyName(user.getDisplayName());
+        payment.setInn(user.getInn());
+        payment.setPaymentPurpose(request.getPaymentPurpose());
+
+        
+        payment.setBik(payerAccount.getBik());
+        payment.setAccountNumber(payerAccount.getAccountNumber());
+        payment.setBankName(payerAccount.getBankName());
+
+        
+        payment.setPaymentId(generatePaymentId());
+        payment.setPaymentDocument(generatePaymentDocumentNumber());
+        payment.setPaymentDate(OffsetDateTime.now());
+        payment.setPaidAt(OffsetDateTime.now());
+
+        
+        String metadata = String.format(
+                "Перевод со счета физлица %s (баланс был: %.2f, стал: %.2f) на счет РЖД %s (баланс был: %.2f, стал: %.2f). Сумма: %.2f. ФИО: %s, ИНН: %s",
+                transfer.getFromAccountNumber(),
+                transfer.getFromBalanceBefore(),
+                transfer.getFromBalanceAfter(),
+                transfer.getToAccountNumber(),
+                transfer.getToBalanceBefore(),
+                transfer.getToBalanceAfter(),
+                transfer.getAmount(),
+                user.getDisplayName(),
+                user.getInn()
+        );
+        payment.setMetadata(metadata);
+
+        Payment savedPayment = paymentRepository.save(payment);
+
+        
+        if (savedPayment.getOrderId() != null) {
+            orderRepository.findById(savedPayment.getOrderId()).ifPresent(order -> {
+                order.setStatus(OrderStatus.оплачен);
+                orderRepository.save(order);
+                log.info("Статус заказа {} обновлен на 'оплачен'", savedPayment.getOrderId());
+            });
+        }
+
+        
+        cachePaymentByInn(savedPayment);
+
+        log.info("Платеж для физлица успешно создан и оплачен: id={}, документ={}, сумма={}, статус={}",
+                savedPayment.getId(), savedPayment.getPaymentDocument(),
+                savedPayment.getAmount(), savedPayment.getStatus());
+
+        return savedPayment;
+    }
+
+    private Payment createLegalEntityPayment(PaymentRequest request, User user) {
+        log.info("Создание платежа для юридического лица: {}", user.getCompanyName());
 
         boolean orderPaid = orderRepository.findById(request.getOrderId())
                 .map(order -> order.getStatus() == OrderStatus.оплачен)
@@ -67,16 +202,12 @@ public class PaymentService {
             throw new RuntimeException("Заказ уже оплачен");
         }
 
-
-
         CompanyAccount payerAccount = accountRepository.findByAccountNumber(request.getAccountNumber())
                 .orElse(null);
 
-
         if (payerAccount == null) {
             log.info("Счет {} не найден в системе, создаем новый для компании {} (ИНН: {})",
-                    request.getAccountNumber(), actualCompanyName, actualInn);
-
+                    request.getAccountNumber(), user.getCompanyName(), user.getInn());
 
             if (request.getBik() == null || request.getBik().isEmpty()) {
                 throw new RuntimeException("Для создания нового счета необходимо указать БИК");
@@ -85,10 +216,9 @@ public class PaymentService {
                 throw new RuntimeException("Для создания нового счета необходимо указать название банка");
             }
 
-
             payerAccount = accountService.createAccount(
-                    actualInn,
-                    actualCompanyName,
+                    user.getInn(),
+                    user.getCompanyName(),
                     request.getBik(),
                     request.getBankName(),
                     false
@@ -97,17 +227,15 @@ public class PaymentService {
             log.info("Новый счет создан: {}, баланс: {} руб",
                     payerAccount.getAccountNumber(), payerAccount.getBalance());
         } else {
-
             log.info("Счет {} найден в системе, баланс: {} руб",
                     request.getAccountNumber(), payerAccount.getBalance());
 
-            if (!payerAccount.getInn().equals(actualInn)) {
+            if (!payerAccount.getInn().equals(user.getInn())) {
                 throw new RuntimeException(
                         "Счет " + request.getAccountNumber() + " не принадлежит вашей компании. " +
-                                "Укажите счет, зарегистрированный на ИНН " + actualInn);
+                                "Укажите счет, зарегистрированный на ИНН " + user.getInn());
             }
         }
-
 
         if (payerAccount.getBalance().compareTo(request.getAmount()) < 0) {
             throw new RuntimeException(String.format(
@@ -115,15 +243,13 @@ public class PaymentService {
                     request.getAccountNumber(), payerAccount.getBalance(), request.getAmount()));
         }
 
-
         CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
                 .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных"));
 
         log.info("Счет РЖД для зачисления: {}, баланс до операции: {} руб",
                 rzdAccount.getAccountNumber(), rzdAccount.getBalance());
 
-
-        AccountService.TransferResult transfer = accountService.transferMoney(
+        TransferResult transfer = accountService.transferMoney(
                 payerAccount.getAccountNumber(),
                 rzdAccount.getAccountNumber(),
                 request.getAmount(),
@@ -134,16 +260,14 @@ public class PaymentService {
             throw new RuntimeException("Ошибка перевода: " + transfer.getMessage());
         }
 
-
         Payment payment = new Payment();
         payment.setOrderId(request.getOrderId());
         payment.setAmount(request.getAmount());
         payment.setStatus(PaymentStatus.SUCCEEDED);
         payment.setPaymentMethod(request.getPaymentMethod());
 
-
-        payment.setCompanyName(actualCompanyName);
-        payment.setInn(actualInn);
+        payment.setCompanyName(user.getCompanyName());
+        payment.setInn(user.getInn());
         payment.setKpp(request.getKpp());
         payment.setBik(payerAccount.getBik());
         payment.setAccountNumber(payerAccount.getAccountNumber());
@@ -151,12 +275,10 @@ public class PaymentService {
         payment.setBankName(payerAccount.getBankName());
         payment.setPaymentPurpose(request.getPaymentPurpose());
 
-
         payment.setPaymentId(generatePaymentId());
         payment.setPaymentDocument(generatePaymentDocumentNumber());
         payment.setPaymentDate(OffsetDateTime.now());
         payment.setPaidAt(OffsetDateTime.now());
-
 
         String metadata = String.format(
                 "Перевод со счета %s (баланс был: %.2f, стал: %.2f) на счет РЖД %s (баланс был: %.2f, стал: %.2f). Сумма: %.2f",
@@ -172,7 +294,6 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
 
-
         if (savedPayment.getOrderId() != null) {
             orderRepository.findById(savedPayment.getOrderId()).ifPresent(order -> {
                 order.setStatus(OrderStatus.оплачен);
@@ -180,7 +301,6 @@ public class PaymentService {
                 log.info("Статус заказа {} обновлен на 'оплачен'", savedPayment.getOrderId());
             });
         }
-
 
         cachePaymentByInn(savedPayment);
 
@@ -191,14 +311,107 @@ public class PaymentService {
         return savedPayment;
     }
 
+    @Transactional
+    public PaymentResponse confirmIndividualPayment(String paymentDocument, BigDecimal amount, String inn) {
+        log.info("Подтверждение оплаты от физлица: документ={}, сумма={}, ИНН={}",
+                paymentDocument, amount, inn);
+
+        Payment payment = paymentRepository.findByPaymentDocument(paymentDocument)
+                .orElseThrow(() -> new RuntimeException("Платеж с документом " + paymentDocument + " не найден"));
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new RuntimeException("Платеж уже обработан. Статус: " + payment.getStatus());
+        }
+
+        
+        if (payment.getAmount().compareTo(amount) != 0) {
+            throw new RuntimeException("Сумма платежа не совпадает. Ожидалось: " +
+                    payment.getAmount() + ", получено: " + amount);
+        }
+
+        
+        if (!payment.getInn().equals(inn)) {
+            throw new RuntimeException("ИНН плательщика не совпадает");
+        }
+
+        
+        CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
+                .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных"));
+
+        BigDecimal beforeBalance = rzdAccount.getBalance();
+        log.info("Баланс счета РЖД до зачисления: {} руб", beforeBalance);
+
+        
+        int deposited = accountRepository.deposit(rzdAccount.getAccountNumber(), payment.getAmount());
+
+        if (deposited == 0) {
+            throw new RuntimeException("Ошибка при зачислении средств на счет РЖД");
+        }
+
+        
+        payment.setStatus(PaymentStatus.SUCCEEDED);
+        payment.setPaidAt(OffsetDateTime.now());
+        payment.setPaymentDate(OffsetDateTime.now());
+
+        
+        CompanyAccount updatedRzdAccount = accountRepository.findByAccountNumber(rzdAccount.getAccountNumber())
+                .orElseThrow(() -> new RuntimeException("Счет РЖД не найден"));
+
+        
+        String metadata = String.format(
+                "Зачисление от физлица %s (ИНН: %s). Сумма: %.2f. Баланс РЖД был: %.2f, стал: %.2f",
+                payment.getCompanyName(),
+                payment.getInn(),
+                payment.getAmount(),
+                beforeBalance,
+                updatedRzdAccount.getBalance()
+        );
+
+        String currentMetadata = payment.getMetadata() != null ? payment.getMetadata() : "";
+        payment.setMetadata(currentMetadata + "\n" + metadata);
+
+        Payment savedPayment = paymentRepository.save(payment);
+
+        
+        if (savedPayment.getOrderId() != null) {
+            orderRepository.findById(savedPayment.getOrderId()).ifPresent(order -> {
+                order.setStatus(OrderStatus.оплачен);
+                orderRepository.save(order);
+                log.info("Статус заказа {} обновлен на 'оплачен'", savedPayment.getOrderId());
+            });
+        }
+
+        
+        cachePaymentByInn(savedPayment);
+
+        log.info("Платеж от физлица подтвержден: {}, сумма {} руб зачислена на счет РЖД. Новый баланс РЖД: {} руб",
+                savedPayment.getPaymentDocument(),
+                savedPayment.getAmount(),
+                updatedRzdAccount.getBalance());
+
+        return convertToResponse(savedPayment);
+    }
+
     private String generatePaymentId() {
         return "pay_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
+
+    private String generatePaymentDocumentNumber() {
+        return String.format("РЖД-%d-%03d",
+                System.currentTimeMillis() / 1000,
+                (int)(Math.random() * 1000));
+    }
+
+    private void cachePaymentByInn(Payment payment) {
+        String key = PAYMENT_INN_CACHE_KEY + payment.getInn();
+        redisTemplate.opsForList().leftPush(key, payment.getId().toString());
+        redisTemplate.expire(key, 30, TimeUnit.DAYS);
+    }
+
     @Transactional
     public PaymentResponse handleBankWebhook(PaymentWebhookRequest request) {
         log.info("Обработка банковского вебхука: paymentId={}, status={}, inn={}",
                 request.getPaymentId(), request.getStatus(), request.getInn());
-
 
         String idempotencyKey = PAYMENT_IDEMPOTENCY_KEY + request.getPaymentId();
         Boolean isProcessed = redisTemplate.opsForValue()
@@ -210,7 +423,6 @@ public class PaymentService {
         }
 
         try {
-
             Payment payment = paymentRepository.findByPaymentId(request.getPaymentId())
                     .orElseGet(() -> {
                         if (request.getInn() != null && request.getAmount() != null) {
@@ -222,7 +434,6 @@ public class PaymentService {
                         }
                         throw new RuntimeException("Недостаточно данных для поиска платежа");
                     });
-
 
             switch (request.getStatus()) {
                 case "succeeded":
@@ -237,11 +448,9 @@ public class PaymentService {
                     log.info("Платеж от {} (ИНН: {}) успешно завершен",
                             payment.getCompanyName(), payment.getInn());
 
-
                     if (payment.getOrderId() != null) {
                         Order order = orderRepository.findById(payment.getOrderId())
                                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + payment.getOrderId()));
-
 
                         OrderStatus oldStatus = order.getStatus();
                         order.setStatus(OrderStatus.оплачен);
@@ -269,7 +478,6 @@ public class PaymentService {
                     break;
             }
 
-
             if (request.getPaymentId() != null) {
                 payment.setPaymentId(request.getPaymentId());
             }
@@ -278,18 +486,15 @@ public class PaymentService {
             return convertToResponse(savedPayment);
 
         } catch (Exception e) {
-
             redisTemplate.delete(idempotencyKey);
             throw e;
         }
     }
 
-
     @Transactional
     public void sendSuccessWebhook(UUID paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException("Платеж не найден"));
-
 
         PaymentWebhookRequest webhook = new PaymentWebhookRequest();
         webhook.setPaymentId("bank_real_" + System.currentTimeMillis());
@@ -301,16 +506,12 @@ public class PaymentService {
         webhook.setPaymentDocument("ПП-" + System.currentTimeMillis());
         webhook.setPaymentDate(OffsetDateTime.now());
 
-
         PaymentResponse response = handleBankWebhook(webhook);
-
         log.info("Вебхук об успешной оплате отправлен для платежа {}", paymentId);
     }
 
-
     @Transactional(readOnly = true)
     public boolean isOrderPaid(UUID orderId) {
-
         return orderRepository.findById(orderId)
                 .map(order -> order.getStatus() == OrderStatus.оплачен)
                 .orElse(false);
@@ -319,19 +520,6 @@ public class PaymentService {
     @Transactional(readOnly = true)
     public boolean isOrderPaidByPayments(UUID orderId) {
         return paymentRepository.existsByOrderIdAndStatus(orderId, PaymentStatus.SUCCEEDED);
-    }
-
-
-    private String generatePaymentDocumentNumber() {
-        return String.format("РЖД-%d-%03d",
-                System.currentTimeMillis() / 1000,
-                (int)(Math.random() * 1000));
-    }
-
-    private void cachePaymentByInn(Payment payment) {
-        String key = PAYMENT_INN_CACHE_KEY + payment.getInn();
-        redisTemplate.opsForList().leftPush(key, payment.getId().toString());
-        redisTemplate.expire(key, 30, TimeUnit.DAYS);
     }
 
     @Transactional(readOnly = true)
@@ -351,10 +539,7 @@ public class PaymentService {
                     .collect(Collectors.toList());
         }
 
-
         List<Payment> payments = paymentRepository.findByInn(inn);
-
-
         payments.forEach(this::cachePaymentByInn);
 
         return payments.stream()
@@ -420,24 +605,19 @@ public class PaymentService {
     public PaymentResponse refundPayment(UUID paymentId) {
         log.info("Инициация возврата для платежа: {}", paymentId);
 
-        // 1. Находим платеж
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException("Платеж не найден"));
 
-        // Возврат возможен только для успешных транзакций
-        if (payment.getStatus() != Payment.PaymentStatus.SUCCEEDED) {
+        if (payment.getStatus() != PaymentStatus.SUCCEEDED) {
             throw new RuntimeException("Возврат возможен только для успешно завершенных платежей. Текущий статус: " + payment.getStatus());
         }
 
-        // 2. Находим счет РЖД (откуда будем списывать деньги)
         CompanyAccount rzdAccount = accountRepository.findByIsRzdAccountTrue()
                 .orElseThrow(() -> new RuntimeException("Счет РЖД не найден в базе данных"));
 
-        // 3. Выполняем обратный перевод средств
-        // accountService.transferMoney(от_кого, кому, сколько, назначение)
-        AccountService.TransferResult transfer = accountService.transferMoney(
-                rzdAccount.getAccountNumber(), // Списываем со счета РЖД
-                payment.getAccountNumber(),    // Зачисляем на счет клиента (сохраненный в платеже)
+        TransferResult transfer = accountService.transferMoney(
+                rzdAccount.getAccountNumber(),
+                payment.getAccountNumber(),
                 payment.getAmount(),
                 "Возврат средств по отмененному платежу: " + payment.getPaymentId()
         );
@@ -446,8 +626,7 @@ public class PaymentService {
             throw new RuntimeException("Ошибка возврата средств: " + transfer.getMessage());
         }
 
-        // 4. Обновляем статус и метаданные платежа
-        payment.setStatus(Payment.PaymentStatus.REFUNDED);
+        payment.setStatus(PaymentStatus.REFUNDED);
 
         String refundMetadata = String.format(
                 "\n[ВОЗВРАТ %s] Перевод со счета РЖД %s на счет %s. Сумма: %.2f",
@@ -457,14 +636,12 @@ public class PaymentService {
                 transfer.getAmount()
         );
 
-        // Дописываем информацию о возврате к существующим метаданным
         String currentMetadata = payment.getMetadata() != null ? payment.getMetadata() : "";
         payment.setMetadata(currentMetadata + refundMetadata);
 
         Payment updatedPayment = paymentRepository.save(payment);
         log.info("Возврат успешно проведен. Платеж {} переведен в статус REFUNDED", payment.getId());
 
-        // 5. Обновляем статус заказа (откатываем до "ожидает оплаты")
         if (updatedPayment.getOrderId() != null) {
             orderRepository.findById(updatedPayment.getOrderId()).ifPresent(order -> {
                 order.setStatus(OrderStatus.ожидает_оплаты);
@@ -475,5 +652,4 @@ public class PaymentService {
 
         return convertToResponse(updatedPayment);
     }
-
 }

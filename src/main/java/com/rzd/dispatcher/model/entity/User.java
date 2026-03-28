@@ -9,6 +9,7 @@ import org.hibernate.annotations.GenericGenerator;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -32,11 +33,46 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(name = "company_name", nullable = false, length = 255)
+    @Column(name = "user_type", nullable = false)
+    private String userType = "LEGAL_ENTITY";
+
+    // Юр лицо
+    @Column(name = "company_name", length = 255)
     private String companyName;
 
-    @Column(name = "inn", nullable = false, length = 20)
+    @Column(name = "inn", length = 20)
     private String inn;
+
+    // Физ лицо
+    @Column(name = "last_name", length = 255)
+    private String lastName;
+
+    @Column(name = "first_name", length = 255)
+    private String firstName;
+
+    @Column(name = "patronymic", length = 255)
+    private String patronymic;
+
+    @Column(name = "phone", length = 20)
+    private String phone;
+
+    @Column(name = "passport_series", length = 4)
+    private String passportSeries;
+
+    @Column(name = "passport_number", length = 6)
+    private String passportNumber;
+
+    @Column(name = "passport_issued_by", length = 255)
+    private String passportIssuedBy;
+
+    @Column(name = "passport_issued_date")
+    private LocalDate passportIssuedDate;
+
+    @Column(name = "registration_address")
+    private String registrationAddress;
+
+    @Column(name = "snils", length = 14)
+    private String snils;
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
@@ -45,28 +81,46 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Column(name = "role", nullable = false)
     private Role role = Role.USER;
 
+    public String getDisplayName() {
+        if ("INDIVIDUAL".equals(userType)) {
+            return String.format("%s %s %s",
+                    lastName != null ? lastName : "",
+                    firstName != null ? firstName : "",
+                    patronymic != null ? patronymic : ""
+            ).trim();
+        }
+        return companyName;
+    }
+
     @PrePersist
     protected void onCreate() {
         createdAt = OffsetDateTime.now();
     }
 
+    @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
+    @Override
     public String getPassword() {
         return passwordHash;
     }
 
+    @Override
     public String getUsername() {
         return email;
     }
 
+    @Override
     public boolean isAccountNonExpired() { return true; }
 
+    @Override
     public boolean isAccountNonLocked() { return true; }
 
+    @Override
     public boolean isCredentialsNonExpired() { return true; }
 
+    @Override
     public boolean isEnabled() { return true; }
 }
