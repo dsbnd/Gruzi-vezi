@@ -9,6 +9,9 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    maven {
+        url "https://repository.atomikos.com"
+    }
 }
 
 dependencies {
@@ -32,6 +35,7 @@ dependencies {
 
     // Spring Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
+
 
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'

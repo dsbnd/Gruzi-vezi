@@ -7,11 +7,12 @@ import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,12 +23,11 @@ public class AccountService {
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Transactional
+
     public CompanyAccount createAccount(String inn, String companyName,
                                         String bik, String bankName,
                                         boolean isMain) {
         log.info("Создание счета для компании: {} (ИНН: {})", companyName, inn);
-
 
         String accountNumber = generateUniqueAccountNumber();
 
@@ -41,7 +41,6 @@ public class AccountService {
         account.setIsMain(isMain);
         account.setIsRzdAccount(false);
 
-
         if (isMain) {
             accountRepository.findAllByInnOrderByIsMainDescCreatedAtDesc(inn)
                     .forEach(a -> {
@@ -50,13 +49,15 @@ public class AccountService {
                     });
         }
 
+        account.setCreatedAt(OffsetDateTime.now());
+        account.setUpdatedAt(OffsetDateTime.now());
+
         CompanyAccount savedAccount = accountRepository.save(account);
         log.info("Счет создан: {} для ИНН: {} с балансом {} руб",
                 savedAccount.getAccountNumber(), inn, savedAccount.getBalance());
 
         return savedAccount;
     }
-
 
     @Transactional(readOnly = true)
     public List<CompanyAccount> getAccountsByInn(String inn) {
@@ -77,72 +78,65 @@ public class AccountService {
     }
 
 
-    @Transactional(
-            isolation = Isolation.SERIALIZABLE,
-            rollbackFor = Exception.class,
-            timeout = 30
-    )
-public TransferResult transferMoney(String fromAccountNumber, String toAccountNumber,
-                                    BigDecimal amount, String description) {
-    log.info("Счет отправителя: {}", fromAccountNumber);
-    log.info("Счет получателя: {}", toAccountNumber);
-    log.info("Сумма перевода: {} руб", amount);
+    public TransferResult transferMoney(String fromAccountNumber, String toAccountNumber,
+                                        BigDecimal amount, String description) {
+        log.info("Счет отправителя: {}", fromAccountNumber);
+        log.info("Счет получателя: {}", toAccountNumber);
+        log.info("Сумма перевода: {} руб", amount);
 
-    CompanyAccount fromAccount = accountRepository.findByAccountNumberForUpdate(fromAccountNumber)
-            .orElseThrow(() -> new RuntimeException("Счет отправителя не найден: " + fromAccountNumber));
-    CompanyAccount toAccount = accountRepository.findByAccountNumberForUpdate(toAccountNumber)
-            .orElseThrow(() -> new RuntimeException("Счет получателя не найден: " + toAccountNumber));
+        CompanyAccount fromAccount = accountRepository.findByAccountNumberForUpdate(fromAccountNumber)
+                .orElseThrow(() -> new RuntimeException("Счет отправителя не найден: " + fromAccountNumber));
+        CompanyAccount toAccount = accountRepository.findByAccountNumberForUpdate(toAccountNumber)
+                .orElseThrow(() -> new RuntimeException("Счет получателя не найден: " + toAccountNumber));
 
-    BigDecimal beforeFrom = fromAccount.getBalance();
-    BigDecimal beforeTo = toAccount.getBalance();
+        BigDecimal beforeFrom = fromAccount.getBalance();
+        BigDecimal beforeTo = toAccount.getBalance();
 
-    log.info("До операции");
-    log.info("Отправитель ({}): {} руб", fromAccount.getCompanyName(), beforeFrom);
-    log.info("Получатель ({}): {} руб", toAccount.getCompanyName(), beforeTo);
+        log.info("До операции");
+        log.info("Отправитель ({}): {} руб", fromAccount.getCompanyName(), beforeFrom);
+        log.info("Получатель ({}): {} руб", toAccount.getCompanyName(), beforeTo);
 
-    if (beforeFrom.compareTo(amount) < 0) {
-        String errorMsg = String.format("Недостаточно средств. Доступно: %.2f руб", beforeFrom);
-        log.error("Ошибка: {}", errorMsg);
-        return TransferResult.failed(fromAccount, toAccount, amount, errorMsg, description);
+        if (beforeFrom.compareTo(amount) < 0) {
+            String errorMsg = String.format("Недостаточно средств. Доступно: %.2f руб", beforeFrom);
+            log.error("Ошибка: {}", errorMsg);
+            return TransferResult.failed(fromAccount, toAccount, amount, errorMsg, description);
+        }
+
+        int withdrawn = accountRepository.withdraw(fromAccountNumber, amount);
+        if (withdrawn == 0) {
+            String errorMsg = "Не удалось списать средства";
+            log.error("Ошибка: {}", errorMsg);
+            return TransferResult.failed(fromAccount, toAccount, amount, errorMsg, description);
+        }
+
+        int deposited = accountRepository.deposit(toAccountNumber, amount);
+        if (deposited == 0) {
+            accountRepository.deposit(fromAccountNumber, amount);
+            throw new RuntimeException("Ошибка зачисления");
+        }
+
+        entityManager.flush();
+        entityManager.clear();
+
+        CompanyAccount updatedFromAccount = accountRepository.findByAccountNumber(fromAccountNumber)
+                .orElseThrow(() -> new RuntimeException("Счет отправителя не найден"));
+        CompanyAccount updatedToAccount = accountRepository.findByAccountNumber(toAccountNumber)
+                .orElseThrow(() -> new RuntimeException("Счет получателя не найден"));
+
+        log.info("После операции");
+        log.info("Отправитель ({}):", updatedFromAccount.getCompanyName());
+        log.info("Было: {} руб", beforeFrom);
+        log.info("Списано: {} руб", amount);
+        log.info("Стало: {} руб ", updatedFromAccount.getBalance());
+        log.info("");
+        log.info("Получатель ({}):", updatedToAccount.getCompanyName());
+        log.info("Было: {} руб", beforeTo);
+        log.info("Зачислено: {} руб", amount);
+        log.info("Стало: {} руб ", updatedToAccount.getBalance());
+
+        return TransferResult.success(updatedFromAccount, updatedToAccount, amount,
+                beforeFrom, beforeTo, description);
     }
-
-    int withdrawn = accountRepository.withdraw(fromAccountNumber, amount);
-    if (withdrawn == 0) {
-        String errorMsg = "Не удалось списать средства";
-        log.error("Ошибка: {}", errorMsg);
-        return TransferResult.failed(fromAccount, toAccount, amount, errorMsg, description);
-    }
-
-    int deposited = accountRepository.deposit(toAccountNumber, amount);
-    if (deposited == 0) {
-        accountRepository.deposit(fromAccountNumber, amount);
-        throw new RuntimeException("Ошибка зачисления");
-    }
-
-    entityManager.flush();
-    entityManager.clear();
-
-    CompanyAccount updatedFromAccount = accountRepository.findByAccountNumber(fromAccountNumber)
-            .orElseThrow(() -> new RuntimeException("Счет отправителя не найден"));
-    CompanyAccount updatedToAccount = accountRepository.findByAccountNumber(toAccountNumber)
-            .orElseThrow(() -> new RuntimeException("Счет получателя не найден"));
-
-    log.info("После операции");
-    log.info("Отправитель ({}):", updatedFromAccount.getCompanyName());
-    log.info("Было: {} руб", beforeFrom);
-    log.info("Списано: {} руб", amount);
-    log.info("Стало: {} руб ", updatedFromAccount.getBalance());
-    log.info("Итог: {} руб ", updatedFromAccount.getBalance());
-    log.info("");
-    log.info("Получатель ({}):", updatedToAccount.getCompanyName());
-    log.info("Было: {} руб", beforeTo);
-    log.info("Зачислено: {} руб", amount);
-    log.info("Стало: {} руб ", updatedToAccount.getBalance());
-    log.info("Итог: {} руб ", updatedToAccount.getBalance());
-
-    return TransferResult.success(updatedFromAccount, updatedToAccount, amount,
-            beforeFrom, beforeTo, description);
-}
 
     private String generateUniqueAccountNumber() {
         String accountNumber;
@@ -150,9 +144,9 @@ public TransferResult transferMoney(String fromAccountNumber, String toAccountNu
             String randomPart = String.format("%012d", (long)(Math.random() * 1000000000000L));
             accountNumber = "40702810" + randomPart;
         } while (accountRepository.existsByAccountNumber(accountNumber));
-
         return accountNumber;
     }
+
 
     @lombok.Data
     @lombok.AllArgsConstructor
@@ -195,6 +189,5 @@ public TransferResult transferMoney(String fromAccountNumber, String toAccountNu
                     to.getBalance(), to.getBalance(),
                     amount, description);
         }
-
     }
 }

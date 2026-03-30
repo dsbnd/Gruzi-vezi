@@ -29,18 +29,20 @@ public class WagonSearchService {
     private final WagonRepository wagonRepository;
     private final WagonScheduleRepository scheduleRepository;
     private final WagonTariffRepository tariffRepository;
-    private final OrderService orderService;
+
     private final StationDistanceRepository distanceRepository;
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String WAGON_RESERVATION_KEY = "wagon:reserved:";
 
+     
+     
+     
 
     @Transactional(readOnly = true)
     public List<WagonAvailabilityResponse> findAvailableWagons(WagonSearchRequest request) {
         log.info("Поиск вагонов: станция={}, вес={}кг, тип={}",
                 request.getDepartureStation(), request.getWeightKg(), request.getPreferredWagonType());
-
 
         List<Wagon> wagonsOnStation = wagonRepository.findAvailableWagons(
                 request.getDepartureStation(),
@@ -49,73 +51,49 @@ public class WagonSearchService {
         );
 
         log.info("Найдено вагонов в БД до фильтрации: {}", wagonsOnStation.size());
-        for (Wagon w : wagonsOnStation) {
-            log.info("  - Вагон: {}, вес: {}кг, объем: {}м³",
-                    w.getWagonNumber(), w.getMaxWeightKg(), w.getMaxVolumeM3());
-        }
 
         List<WagonAvailabilityResponse> result = new ArrayList<>();
 
-
-
         for (Wagon wagon : wagonsOnStation) {
-            log.info("Проверка вагона: {}", wagon.getWagonNumber());
-
-
             if (request.getPreferredWagonType() != null) {
-                log.info("  Тип вагона: {}, ищем: {}",
-                        wagon.getWagonType().name(), request.getPreferredWagonType());
                 if (!wagon.getWagonType().name().equalsIgnoreCase(request.getPreferredWagonType())) {
-                    log.info(" Не подходит по типу");
                     continue;
                 }
             }
 
-
             if (isWagonReserved(wagon.getId())) {
-                log.info(" Вагон зарезервирован в Redis");
                 continue;
             }
 
-
             OffsetDateTime requiredDate = convertToOffsetDateTime(request.getRequiredDepartureDate());
-            log.info("  Проверка доступности на дату: {}", requiredDate);
 
             if (isWagonAvailableForDates(wagon, requiredDate)) {
-                log.info("  Вагон доступен");
                 WagonAvailabilityResponse response = buildWagonResponse(wagon, request);
                 result.add(response);
-            } else {
-                log.info("  Вагон не доступен по датам (есть конфликты в расписании)");
             }
         }
-
 
         if (request.isAllowAlternativeStations() && result.size() < 3) {
             List<Wagon> nearbyWagons = findWagonsOnNearbyStations(request);
             for (Wagon wagon : nearbyWagons) {
                 if (result.size() >= 10) break;
-
-                if (isWagonReserved(wagon.getId())) {
-                    continue;
-                }
-
+                if (isWagonReserved(wagon.getId())) continue;
                 WagonAvailabilityResponse response = buildWagonResponseWithDistance(wagon, request);
                 result.add(response);
             }
         }
 
-
         result.sort((a, b) -> b.getMatchPercentage().compareTo(a.getMatchPercentage()));
-
         log.info("Найдено {} доступных вагонов", result.size());
         return result;
     }
 
-    @Transactional
+     
+     
+     
+     
     public boolean reserveWagon(UUID wagonId, UUID orderId, int minutes) {
         log.info("Резервирование вагона {} для заказа {} на {} минут", wagonId, orderId, minutes);
-
 
         String redisKey = WAGON_RESERVATION_KEY + wagonId;
         Boolean isReserved = redisTemplate.opsForValue()
@@ -127,7 +105,6 @@ public class WagonSearchService {
         }
 
         try {
-
             Wagon wagon = wagonRepository.findById(wagonId)
                     .orElseThrow(() -> new RuntimeException("Вагон не найден"));
 
@@ -137,10 +114,8 @@ public class WagonSearchService {
                 return false;
             }
 
-
             wagon.setStatus(WagonStatus.забронирован);
             wagonRepository.save(wagon);
-
 
             WagonSchedule schedule = new WagonSchedule();
             schedule.setWagon(wagon);
@@ -149,7 +124,7 @@ public class WagonSearchService {
             schedule.setDepartureStation("ожидает");
             schedule.setArrivalStation("ожидает");
             scheduleRepository.save(schedule);
-            orderService.updateOrderStatus(orderId, OrderStatus.поиск_вагона);
+
             log.info("Вагон {} успешно зарезервирован для заказа {}", wagonId, orderId);
             return true;
 
@@ -160,21 +135,21 @@ public class WagonSearchService {
         }
     }
 
-    @Transactional
+     
+     
+     
+     
     public void releaseWagon(UUID wagonId) {
         log.info("Освобождение вагона {}", wagonId);
 
-
         String redisKey = WAGON_RESERVATION_KEY + wagonId;
         redisTemplate.delete(redisKey);
-
 
         Wagon wagon = wagonRepository.findById(wagonId)
                 .orElseThrow(() -> new RuntimeException("Вагон не найден"));
 
         wagon.setStatus(WagonStatus.свободен);
         wagonRepository.save(wagon);
-
 
         List<WagonSchedule> schedules = scheduleRepository.findByWagonId(wagonId);
         for (WagonSchedule schedule : schedules) {
@@ -188,12 +163,15 @@ public class WagonSearchService {
         log.info("Вагон {} освобожден", wagonId);
     }
 
+     
+     
+     
+
     private boolean isWagonReserved(UUID wagonId) {
         String redisKey = WAGON_RESERVATION_KEY + wagonId;
         Boolean hasKey = redisTemplate.hasKey(redisKey);
         return Boolean.TRUE.equals(hasKey);
     }
-
 
     private OffsetDateTime convertToOffsetDateTime(LocalDateTime localDateTime) {
         if (localDateTime == null) return null;

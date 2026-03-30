@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.controller;
 
 import com.rzd.dispatcher.model.dto.request.CreateOrderRequest;
+import com.rzd.dispatcher.model.dto.request.CreateOrderWithReservationRequest;
 import com.rzd.dispatcher.model.dto.response.OrderResponse;
 import com.rzd.dispatcher.model.entity.Order;
 import com.rzd.dispatcher.model.enums.OrderStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -111,5 +113,34 @@ public class OrderController {
 
         return ResponseEntity.ok(OrderResponse.fromOrder(order));
     }
+    @PostMapping("/complete-with-reservation")
+    public ResponseEntity<?> createCompleteOrder(
+            @RequestBody CreateOrderWithReservationRequest request,
+            Authentication authentication) {
 
+        UUID orderId = orderService.createCompleteOrderWithReservation(
+                request.getOrderRequest(),
+                authentication.getName(),
+                request.getWagonId(),
+                request.getSelectedServices()
+        );
+
+        return ResponseEntity.ok(Map.of(
+                "orderId", orderId,
+                "message", "Заявка успешно создана, вагон зарезервирован (JTA транзакция)"
+        ));
+    }
+    @PostMapping("/{orderId}/complete-cancel")
+    public ResponseEntity<?> cancelCompleteOrder(
+            @PathVariable UUID orderId,
+            @RequestParam(defaultValue = "true") boolean withRefund,
+            Authentication authentication) {
+
+        orderService.cancelCompleteOrder(orderId, authentication.getName(), withRefund);
+
+        return ResponseEntity.ok(Map.of(
+                "orderId", orderId,
+                "message", "Заявка успешно отменена (JTA транзакция)"
+        ));
+    }
 }

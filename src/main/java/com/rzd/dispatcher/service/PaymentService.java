@@ -652,4 +652,16 @@ public class PaymentService {
 
         return convertToResponse(updatedPayment);
     }
+
+    public void refundPaymentByOrderId(UUID orderId) {
+        log.info("Возврат средств для заказа: {}", orderId);
+
+
+        Payment payment = paymentRepository.findByOrderId(orderId).stream()
+                .filter(p -> p.getStatus() == Payment.PaymentStatus.SUCCEEDED)
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Успешный платеж для заказа не найден"));
+
+        refundPayment(payment.getId());
+    }
 }

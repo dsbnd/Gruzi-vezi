@@ -28,25 +28,24 @@ public class PricingService {
 
     private static final BigDecimal CO2_FACTOR = new BigDecimal("0.02");
 
-    @Transactional(readOnly = true)
+     
+     
+     
+     
     public PriceResponse calculateFullPrice(UUID orderId, UUID wagonId, Set<String> selectedServices) {
         log.info("Расчет полной стоимости для заказа: {}, вагон: {}", orderId, wagonId);
-
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
 
-
         Wagon wagon = wagonRepository.findById(wagonId)
                 .orElseThrow(() -> new RuntimeException("Вагон не найден с ID: " + wagonId));
-
 
         int distance = getDistanceBetweenStations(
                 order.getDepartureStation(),
                 order.getDestinationStation()
         );
         log.info("Расстояние между станциями: {} км", distance);
-
 
         final String cargoTypeName;
         final Integer weightKg;
@@ -58,7 +57,6 @@ public class PricingService {
             weightKg = 0;
         }
 
-
         final String wagonTypeName = wagon.getWagonType().name();
 
         WagonTariff tariff = wagonTariffRepository.findByWagonTypeAndCargoType(
@@ -66,7 +64,6 @@ public class PricingService {
                 cargoTypeName
         ).orElseThrow(() -> new RuntimeException(
                 "Тариф не найден для вагона: " + wagonTypeName + " и груза: " + cargoTypeName));
-
 
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal(1000), 2, RoundingMode.HALF_UP);
@@ -83,7 +80,6 @@ public class PricingService {
 
         log.info("Базовая цена: {} руб", basePrice);
 
-
         List<PriceResponse.AdditionalServiceDto> allServices =
                 additionalServicesService.getServicesWithSelection(
                         cargoTypeName,
@@ -94,7 +90,6 @@ public class PricingService {
                         distance,
                         selectedServices
                 );
-
 
         BigDecimal servicesPrice = additionalServicesService.calculateServicesPrice(
                 selectedServices,
@@ -108,12 +103,9 @@ public class PricingService {
 
         log.info("Цена выбранных услуг: {} руб", servicesPrice);
 
-
         double carbonFootprint = calculateCarbonFootprint(weightKg, distance);
 
-
         BigDecimal cargoValue = additionalServicesService.estimateCargoValue(cargoTypeName, weightKg);
-
 
         PriceResponse response = PriceResponse.builder()
                 .basePrice(basePrice)
@@ -134,6 +126,10 @@ public class PricingService {
         log.info("Расчет завершен. Итоговая цена: {} руб", response.getTotalPrice());
         return response;
     }
+
+     
+     
+     
 
     @Transactional(readOnly = true)
     public PriceResponse calculatePrice(PriceCalculationRequest request) {
@@ -163,7 +159,6 @@ public class PricingService {
             basePrice = tariff.getMinPrice();
         }
 
-
         List<PriceResponse.AdditionalServiceDto> allServices =
                 additionalServicesService.getServicesWithSelection(
                         request.getCargoType(),
@@ -174,7 +169,6 @@ public class PricingService {
                         distance,
                         request.getSelectedServices()
                 );
-
 
         BigDecimal servicesPrice = additionalServicesService.calculateServicesPrice(
                 request.getSelectedServices(),
@@ -213,17 +207,14 @@ public class PricingService {
     public PriceResponse calculateEstimatedPrice(UUID orderId, String wagonType) {
         log.info("Расчет ориентировочной цены для заказа: {}, тип вагона: {}", orderId, wagonType);
 
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
-
 
         int distance = getDistanceBetweenStations(
                 order.getDepartureStation(),
                 order.getDestinationStation()
         );
         log.info("Расстояние между станциями: {} км", distance);
-
 
         final String cargoTypeName;
         final Integer weightKg;
@@ -235,7 +226,6 @@ public class PricingService {
             weightKg = 0;
         }
 
-
         WagonTariff tariff;
         try {
             tariff = wagonTariffRepository.findByWagonTypeAndCargoType(
@@ -243,7 +233,6 @@ public class PricingService {
                     cargoTypeName
             ).orElseThrow(() -> new RuntimeException("Тариф не найден"));
         } catch (Exception e) {
-
             log.warn("Тариф не найден для вагона {} и груза {}, используем значения по умолчанию",
                     wagonType, cargoTypeName);
             tariff = new WagonTariff();
@@ -251,7 +240,6 @@ public class PricingService {
             tariff.setCoefficient(BigDecimal.ONE);
             tariff.setMinPrice(new BigDecimal("4000.00"));
         }
-
 
         BigDecimal weightTons = new BigDecimal(weightKg)
                 .divide(new BigDecimal(1000), 2, RoundingMode.HALF_UP);
@@ -262,19 +250,15 @@ public class PricingService {
                 .multiply(tariff.getCoefficient())
                 .setScale(2, RoundingMode.HALF_UP);
 
-
         if (tariff.getMinPrice() != null && estimatedPrice.compareTo(tariff.getMinPrice()) < 0) {
             estimatedPrice = tariff.getMinPrice();
         }
 
-
         double carbonFootprint = calculateCarbonFootprint(weightKg, distance);
-
 
         BigDecimal cargoValue = additionalServicesService.estimateCargoValue(cargoTypeName, weightKg);
 
         log.info("Ориентировочная цена: {} руб", estimatedPrice);
-
 
         return PriceResponse.builder()
                 .basePrice(estimatedPrice)
@@ -292,7 +276,6 @@ public class PricingService {
                 .build();
     }
 
-
     private String determineRiskLevel(String cargoType, Integer weightKg) {
         if (cargoType == null) return "Средний";
 
@@ -308,7 +291,6 @@ public class PricingService {
             return "Низкий";
         }
     }
-
 
     private int getDistanceBetweenStations(String from, String to) {
         return distanceRepository.findByFromStationAndToStation(from, to)
