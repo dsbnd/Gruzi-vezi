@@ -9,9 +9,6 @@ version = '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
-    maven {
-        url "https://repository.atomikos.com"
-    }
 }
 
 dependencies {
@@ -47,4 +44,22 @@ dependencies {
 
 test {
     useJUnitPlatform()
+}
+
+plugins {
+    id 'war'
+}
+
+configurations {
+    all*.exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-undertow'
+    providedCompile 'jakarta.servlet:jakarta.servlet-api:6.0.0'
+}
+
+war {
+    enabled = true
+    archiveFileName = 'gruzi-vezi.war'
 }
