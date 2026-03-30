@@ -3,6 +3,7 @@ package com.rzd.dispatcher.controller;
 import com.rzd.dispatcher.model.dto.request.CreateOrderRequest;
 import com.rzd.dispatcher.model.dto.response.OrderResponse;
 import com.rzd.dispatcher.model.entity.Order;
+import com.rzd.dispatcher.model.enums.OrderStatus;
 import com.rzd.dispatcher.repository.OrderRepository;
 import com.rzd.dispatcher.service.OrderService;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @CrossOrigin
 @RestController
@@ -76,8 +78,6 @@ public class OrderController {
     }
 
 
-
-
     @PostMapping("/{orderId}/confirm-wagon")
     public ResponseEntity<OrderResponse> confirmWagon(
             @PathVariable UUID orderId,
@@ -88,6 +88,28 @@ public class OrderController {
         String userEmail = authentication.getName();
         Order updatedOrder = orderService.confirmWagonSelection(orderId, wagonId, totalPrice, userEmail);
         return ResponseEntity.ok(OrderResponse.fromOrder(updatedOrder));
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<OrderResponse>> getAllOrdersForAdmin() {
+        List<Order> allOrders = orderRepository.findAll();
+        List<OrderResponse> responseList = allOrders.stream()
+                .map(OrderResponse::fromOrder)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(responseList);
+    }
+
+    @PatchMapping("/{orderId}/status")
+    public ResponseEntity<OrderResponse> updateOrderStatus(
+            @PathVariable UUID orderId,
+            @RequestParam String newStatus
+    ) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
+        order.setStatus(OrderStatus.valueOf(newStatus));
+        orderRepository.save(order);
+
+        return ResponseEntity.ok(OrderResponse.fromOrder(order));
     }
 
 }

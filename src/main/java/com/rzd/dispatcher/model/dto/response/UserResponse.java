@@ -10,6 +10,8 @@ public class UserResponse {
     private String userType;
     private String displayName;
 
+    private String role;
+
     // Для юрлиц
     private String companyName;
     private String inn;

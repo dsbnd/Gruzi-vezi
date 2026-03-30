@@ -18,18 +18,14 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')") // Дополнительная защита на уровне контроллера
+@PreAuthorize("hasRole('ADMIN')") // допзащита на уровне контроллера
 public class AdminController {
 
     private final UserService userService;
     private final OrderService orderService;
-    private final WagonAdminService wagonAdminService; // Потребуется создать
+    private final WagonAdminService wagonAdminService;
     private final PaymentService paymentService;
-    // private final TariffService tariffService; // Потребуется создать
 
-    // ==========================================
-    // 1. УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ
-    // ==========================================
     @GetMapping("/users")
     public ResponseEntity<List<User>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
@@ -41,9 +37,6 @@ public class AdminController {
         return ResponseEntity.ok("Пользователь удален");
     }
 
-    // ==========================================
-    // 2. ПРОСМОТР И УПРАВЛЕНИЕ ЗАЯВКАМИ
-    // ==========================================
     @GetMapping("/orders")
     public ResponseEntity<List<OrderResponse>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
@@ -57,9 +50,11 @@ public class AdminController {
         return ResponseEntity.ok("Статус заявки изменен на: " + status);
     }
 
-    // ==========================================
-    // 3. УПРАВЛЕНИЕ ВАГОНАМИ
-    // ==========================================
+    @GetMapping("/wagons")
+    public ResponseEntity<List<Wagon>> getAllWagons() {
+        return ResponseEntity.ok(wagonAdminService.getAllWagons());
+    }
+
     @PostMapping("/wagons")
     public ResponseEntity<Wagon> addWagon(@RequestBody Wagon wagon) {
         return ResponseEntity.ok(wagonAdminService.addWagon(wagon));
@@ -78,10 +73,7 @@ public class AdminController {
         wagonAdminService.deleteWagon(id);
         return ResponseEntity.ok("Вагон удален");
     }
-
-    // ==========================================
-    // 4. ПЛАТЕЖИ И ВОЗВРАТЫ
-    // ==========================================
+    
     @GetMapping("/payments")
     public ResponseEntity<List<PaymentResponse>> getAllPayments() {
         return ResponseEntity.ok(paymentService.getAllPayments());

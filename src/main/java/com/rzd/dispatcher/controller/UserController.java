@@ -38,6 +38,7 @@ public class UserController {
                 .email(user.getEmail())
                 .companyName(user.getCompanyName())
                 .inn(String.valueOf(user.getInn()))
+                .role(String.valueOf(user.getRole()))
                 .build();
 
         return ResponseEntity.ok(response);

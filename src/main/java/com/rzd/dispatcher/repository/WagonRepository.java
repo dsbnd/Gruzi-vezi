@@ -18,7 +18,7 @@ import java.util.UUID;
 @Repository
 public interface WagonRepository extends JpaRepository<Wagon, UUID> {
 
-    
+    List<Wagon> findAll();
     List<Wagon> findByStatus(WagonStatus status);
 
     List<Wagon> findByWagonType(WagonType wagonType);
