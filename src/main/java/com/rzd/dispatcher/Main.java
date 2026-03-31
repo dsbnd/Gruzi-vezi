@@ -13,7 +13,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableJpaRepositories(basePackages = "com.rzd.dispatcher.repository")
 @EntityScan(basePackages = "com.rzd.dispatcher.model.entity")
-public class Main extends SpringBootServletInitializer {
+public class Main  {
     public static void main(String[] args) {
         SpringApplication.run(Main.class, args);
     }
