@@ -37,7 +37,7 @@ public class OrderService {
     private final WagonSearchService wagonSearchService;
     private final PaymentService paymentService;
 
-
+    @Transactional
     public UUID createDraftOrder(CreateOrderRequest request, String userEmail) {
         orderValidator.validate(request);
         User user = userRepository.findByEmail(userEmail)
@@ -112,7 +112,7 @@ public class OrderService {
                 .toList();
     }
 
-    // Транзакция - создание заявки
+    // Транзакция создания заявки
     @Transactional(rollbackFor = Exception.class)
     public UUID createCompleteOrderWithReservation(
             CreateOrderRequest request,
@@ -120,18 +120,18 @@ public class OrderService {
             UUID wagonId,
             Set<String> selectedServices) {
 
-        log.info("Транзакция - создание заявки");
+        log.info("Транзакция создания заявки");
         log.info("Пользователь: {}", userEmail);
         log.info("Вагон ID: {}", wagonId);
         log.info("Станция отправления: {}", request.getDepartureStation());
         log.info("Станция назначения: {}", request.getDestinationStation());
 
         try {
-            log.info("1/5: Создание записи о заявке");
+
             UUID orderId = createDraftOrder(request, userEmail);
             log.info("1/5: Заявка создана, ID: {}", orderId);
 
-            log.info("2/5: Резервирование вагона");
+
             boolean reserved = wagonSearchService.reserveWagon(wagonId, orderId, 30);
             if (!reserved) {
                 throw new RuntimeException("Не удалось зарезервировать вагон " + wagonId);
@@ -139,16 +139,16 @@ public class OrderService {
             log.info("2/5: Вагон {} зарезервирован", wagonId);
 
 
-            log.info("3/5: Расчет стоимости перевозки");
+
             PriceResponse priceResponse = pricingService.calculateFullPrice(orderId, wagonId, selectedServices);
             BigDecimal totalPrice = priceResponse.getTotalPrice();
             log.info("3/5: Стоимость перевозки: {} руб", totalPrice);
 
-            log.info("4/5: Расчет углеродного следа");
+
             Double carbonFootprint = priceResponse.getCarbonFootprintKg();
             log.info("4/5: Углеродный след: {} кг ", carbonFootprint);
 
-            log.info("5/5: Подтверждение заявки");
+
             Order confirmedOrder = confirmWagonSelection(orderId, wagonId, totalPrice, userEmail);
             confirmedOrder.setCarbonFootprintKg(BigDecimal.valueOf(carbonFootprint));
             orderRepository.save(confirmedOrder);
@@ -166,18 +166,17 @@ public class OrderService {
         }
     }
 
-    // Транзакция - отмена заявки
+    // Транзакция отмены заявки
     @Transactional(rollbackFor = Exception.class)
     public void cancelCompleteOrder(UUID orderId, String userEmail, boolean withRefund) {
 
-        log.info("Транзакция - отмена заявки");
+        log.info("Транзакция отмены заявки");
         log.info("Заявка ID: {}", orderId);
         log.info("Пользователь: {}", userEmail);
         log.info("Возврат средств: {}", withRefund);
 
         try {
 
-            log.info("1/5: Проверка возможности отмены");
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new RuntimeException("Заявка не найдена"));
 
@@ -188,34 +187,30 @@ public class OrderService {
             if (order.getStatus() == OrderStatus.в_пути || order.getStatus() == OrderStatus.доставлен) {
                 throw new RuntimeException("Невозможно отменить заявку в статусе: " + order.getStatus());
             }
-            log.info("1/5: Проверка пройдена, текущий статус: {}", order.getStatus());
+            log.info("1/4: Проверка пройдена, текущий статус: {}", order.getStatus());
 
-            log.info("2/5: Освобождение вагона");
+
             if (order.getWagon() != null) {
                 wagonSearchService.releaseWagon(order.getWagon().getId());
-                log.info("2/5: Вагон {} освобожден", order.getWagon().getWagonNumber());
+                log.info("2/4: Вагон {} освобожден", order.getWagon().getWagonNumber());
             } else {
-                log.info("2/5: Вагон не был зарезервирован");
+                log.info("2/4: Вагон не был зарезервирован");
             }
 
-            log.info("3/5: Возврат денежных средств");
             if (withRefund && order.getStatus() == OrderStatus.оплачен) {
                 paymentService.refundPaymentByOrderId(orderId);
-                log.info("3/5: Денежные средства возвращены");
+                log.info("3/4: Денежные средства возвращены");
             } else if (order.getStatus() == OrderStatus.оплачен && !withRefund) {
-                log.info("3/5: Возврат средств не запрошен");
+                log.info("3/4: Возврат средств не запрошен");
             } else {
-                log.info("3/5: Оплата не производилась");
+                log.info("3/4: Оплата не производилась");
             }
 
-            log.info("4/5: Аннулирование документов");
-
-            log.info("5/5: Изменение статуса заявки");
             order.setStatus(OrderStatus.черновик);
             order.setWagon(null);
             order.setTotalPrice(null);
             orderRepository.save(order);
-            log.info("5/5: Статус изменен на: {}", order.getStatus());
+            log.info("4/4: Статус изменен на: {}", order.getStatus());
 
             log.info("Транзакция: отмена заявки - завершена ");
 

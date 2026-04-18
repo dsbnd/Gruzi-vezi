@@ -8,7 +8,7 @@ import java.util.UUID;
 @Data
 public class WagonSearchRequest {
 
-    @NotNull(message = "ID заказа обязателен")
+
     private UUID orderId;
 
     @NotBlank(message = "Станция отправления обязательна")
