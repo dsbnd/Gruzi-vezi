@@ -8,7 +8,6 @@ import java.util.UUID;
 @Data
 public class WagonSearchRequest {
 
-
     private UUID orderId;
 
     @NotBlank(message = "Станция отправления обязательна")

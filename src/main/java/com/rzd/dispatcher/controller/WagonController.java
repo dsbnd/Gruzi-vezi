@@ -40,7 +40,12 @@ public class WagonController {
             return ResponseEntity.badRequest().body("Вагон уже зарезервирован");
         }
     }
-
+    @PostMapping("/search-temporary")
+    public ResponseEntity<List<WagonAvailabilityResponse>> searchWagonsTemporary(
+            @Valid @RequestBody WagonSearchRequest request) {
+        List<WagonAvailabilityResponse> wagons = wagonSearchService.findAvailableWagons(request);
+        return ResponseEntity.ok(wagons);
+    }
 
     @PostMapping("/{wagonId}/release")
     public ResponseEntity<String> releaseWagon(@PathVariable UUID wagonId) {

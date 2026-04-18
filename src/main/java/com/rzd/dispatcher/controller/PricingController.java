@@ -24,6 +24,13 @@ public class PricingController {
         PriceResponse response = pricingService.calculatePrice(request);
         return ResponseEntity.ok(response);
     }
+    @PostMapping("/calculate-for-wagon")
+    public ResponseEntity<PriceResponse> calculatePriceForWagon(
+            @RequestParam UUID wagonId,
+            @Valid @RequestBody PriceCalculationRequest request) {
+        PriceResponse response = pricingService.calculatePriceForWagon(wagonId, request);
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping("/full")
     public ResponseEntity<PriceResponse> calculateFullPrice(
