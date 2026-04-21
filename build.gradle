@@ -34,6 +34,8 @@ dependencies {
     implementation 'org.hibernate.validator:hibernate-validator:8.0.1.Final'
     implementation 'org.glassfish:jakarta.el:4.0.2'
 
+    implementation 'org.springframework.boot:spring-boot-starter-quartz'
+
     // Spring Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
