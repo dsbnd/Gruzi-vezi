@@ -15,6 +15,10 @@ import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.scheduling.quartz.QuartzJobBean;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.messaging.simp.stomp.StompHeaders;
+import org.springframework.util.MimeTypeUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.List;
@@ -68,17 +72,21 @@ public class AutoDeliveryJob extends QuartzJobBean {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("orderId", order.getId().toString());
-            payload.put("action", "DELIVERY_COMPLETED");
-            payload.put("userId", order.getUser().getId().toString());
-            payload.put("totalPrice", order.getTotalPrice());
-            payload.put("destinationStation", order.getDestinationStation());
-            payload.put("timestamp", System.currentTimeMillis());
 
-            stompSession.send("/queue/order.completed", payload);
+            ObjectMapper mapper = new ObjectMapper();
+            String jsonString = mapper.writeValueAsString(payload);
 
-            log.info("STOMP сообщение отправлено в /queue/order.completed для заказа {}", order.getId());
+            // МАГИЯ ЗДЕСЬ: Явно указываем брокеру, что это ПРОСТОЙ ТЕКСТ
+            StompHeaders headers = new StompHeaders();
+            headers.setDestination("/queue/order.completed.v6"); // Новая чистая очередь
+            headers.setContentType(MimeTypeUtils.TEXT_PLAIN); // Указываем тип контента!
+
+            // Отправляем сообщение вместе с заголовками
+            stompSession.send(headers, jsonString);
+
+            log.info("✉️ STOMP сообщение отправлено в очередь v6: {}", jsonString);
         } catch (Exception e) {
-            log.error("Ошибка отправки STOMP сообщения для заказа {}: {}", order.getId(), e.getMessage());
+            log.error("❌ Ошибка отправки STOMP сообщения", e);
         }
     }
 }

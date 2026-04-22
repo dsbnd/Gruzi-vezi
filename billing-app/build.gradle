@@ -30,7 +30,7 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
 
     // JMS и RabbitMQ
-    implementation 'org.springframework:spring-jms:6.0.11'
+    implementation 'org.springframework:spring-jms'
     implementation 'com.rabbitmq.jms:rabbitmq-jms:3.1.0'
     implementation 'jakarta.jms:jakarta.jms-api:3.1.0'
 
