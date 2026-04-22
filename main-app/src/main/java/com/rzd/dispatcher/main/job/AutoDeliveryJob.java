@@ -8,6 +8,7 @@ import com.rzd.dispatcher.common.repository.OrderRepository;
 import com.rzd.dispatcher.common.repository.WagonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.springframework.messaging.simp.stomp.StompSession;
@@ -28,6 +29,7 @@ public class AutoDeliveryJob extends QuartzJobBean {
     private final WagonRepository wagonRepository;
     private final StompSession stompSession;
     @Override
+    @SchedulerLock(name = "AutoDeliveryJob", lockAtLeastFor = "PT10S")
     @Transactional
     protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
         log.info("Запуск планировщика Quartz: проверка прибывающих поездов...");
