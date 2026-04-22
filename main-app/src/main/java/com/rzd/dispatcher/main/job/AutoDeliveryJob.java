@@ -10,11 +10,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.scheduling.quartz.QuartzJobBean;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -23,13 +26,12 @@ public class AutoDeliveryJob extends QuartzJobBean {
 
     private final OrderRepository orderRepository;
     private final WagonRepository wagonRepository;
-
+    private final StompSession stompSession;
     @Override
     @Transactional
     protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
-        log.info("⏳ Запуск планировщика Quartz: проверка прибывающих поездов...");
+        log.info("Запуск планировщика Quartz: проверка прибывающих поездов...");
 
-        // 1. Находим все заявки, которые сейчас в пути
         List<Order> ordersInTransit = orderRepository.findByStatus(OrderStatus.в_пути);
 
         if (ordersInTransit.isEmpty()) {
@@ -38,20 +40,43 @@ public class AutoDeliveryJob extends QuartzJobBean {
         }
 
         for (Order order : ordersInTransit) {
-            // 2. Меняем статус заявки на "доставлен"
+            // Меняем статус заявки на "доставлен"
             order.setStatus(OrderStatus.доставлен);
             orderRepository.save(order);
 
-            // 3. Освобождаем привязанный вагон и меняем его станцию
-            Wagon wagon = order.getWagon(); // <-- Проверь, как у тебя называется связь заказа с вагоном
+            // Освобождаем привязанный вагон и меняем его станцию
+            Wagon wagon = order.getWagon();
             if (wagon != null) {
                 wagon.setStatus(WagonStatus.свободен);
-                wagon.setCurrentStation(order.getDestinationStation()); // Вагон остается на станции назначения
+                wagon.setCurrentStation(order.getDestinationStation());
                 wagonRepository.save(wagon);
             }
 
             log.info("Рейс для заявки {} завершен! Вагон прибыл на станцию {}.",
                     order.getId(), order.getDestinationStation());
+
+            sendOrderCompletedEvent(order);
+        }
+    }
+
+    /**
+     * Отправка события о завершении заказа через STOMP в RabbitMQ
+     */
+    private void sendOrderCompletedEvent(Order order) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderId", order.getId().toString());
+            payload.put("action", "DELIVERY_COMPLETED");
+            payload.put("userId", order.getUser().getId().toString());
+            payload.put("totalPrice", order.getTotalPrice());
+            payload.put("destinationStation", order.getDestinationStation());
+            payload.put("timestamp", System.currentTimeMillis());
+
+            stompSession.send("/queue/order.completed", payload);
+
+            log.info("STOMP сообщение отправлено в /queue/order.completed для заказа {}", order.getId());
+        } catch (Exception e) {
+            log.error("Ошибка отправки STOMP сообщения для заказа {}: {}", order.getId(), e.getMessage());
         }
     }
 }
