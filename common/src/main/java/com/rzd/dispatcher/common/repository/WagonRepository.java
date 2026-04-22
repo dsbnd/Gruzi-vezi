@@ -1,0 +1,53 @@
+package com.rzd.dispatcher.common.repository;
+
+import com.rzd.dispatcher.model.entity.Wagon;
+import com.rzd.dispatcher.model.enums.WagonStatus;
+import com.rzd.dispatcher.model.enums.WagonType;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface WagonRepository extends JpaRepository<Wagon, UUID> {
+
+    List<Wagon> findAll();
+    List<Wagon> findByStatus(WagonStatus status);
+
+    List<Wagon> findByWagonType(WagonType wagonType);
+
+    List<Wagon> findByWagonTypeAndStatus(WagonType wagonType, WagonStatus status);
+
+    Optional<Wagon> findByWagonNumber(String wagonNumber);
+
+    
+    @Query("SELECT w FROM Wagon w WHERE w.status = 'свободен' " +
+            "AND w.maxWeightKg >= :weight " +
+            "AND w.maxVolumeM3 >= :volume " +
+            "AND w.currentStation = :station")
+    List<Wagon> findAvailableWagons(@Param("station") String station,
+                                    @Param("weight") Integer weight,
+                                    @Param("volume") Integer volume);
+
+    
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM Wagon w WHERE w.id = :id")
+    Optional<Wagon> findByIdForUpdate(@Param("id") UUID id);
+
+    
+    @Modifying
+    @Query("UPDATE Wagon w SET w.status = :status WHERE w.id = :id")
+    int updateStatus(@Param("id") UUID id, @Param("status") WagonStatus status);
+
+    
+    @Query("SELECT w.status, COUNT(w) FROM Wagon w GROUP BY w.status")
+    List<Object[]> getWagonStatistics();
+
+}

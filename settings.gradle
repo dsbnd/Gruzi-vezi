@@ -1,1 +1,4 @@
 rootProject.name = 'gruzi_vezi'
+include 'common'
+include 'main-app'
+include 'billing-app'

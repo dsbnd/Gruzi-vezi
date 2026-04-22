@@ -1,0 +1,60 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.7'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.rzd.dispatcher.billing'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Зависимость от модуля common
+    implementation project(':common')
+
+    // Spring Boot Starter (без веба)
+    implementation 'org.springframework.boot:spring-boot-starter'
+
+    // JPA для доступа к БД
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // PostgreSQL
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // JMS и RabbitMQ
+    implementation 'org.springframework:spring-jms:6.0.11'
+    implementation 'com.rabbitmq.jms:rabbitmq-jms:2.5.0'
+
+    // Atomikos для распределённых транзакций
+    implementation 'com.atomikos:transactions-spring-boot3-starter:6.0.0'
+    implementation 'com.atomikos:transactions-jta:6.0.0'
+    implementation 'jakarta.transaction:jakarta.transaction-api:2.0.1'
+
+    // JCA API для адаптера
+    implementation 'jakarta.resource:jakarta.resource-api:2.1.0'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+    // Eureka Client и LoadBalancer (добавим позже)
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client:4.0.3'
+    implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer:4.0.3'
+
+    // OpenPDF (если нужна генерация актов)
+    implementation 'com.github.librepdf:openpdf:1.3.30'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2022.0.4"
+    }
+}
