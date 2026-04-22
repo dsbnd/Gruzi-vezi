@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.common.model.entity;
 
-import com.rzd.dispatcher.model.enums.ServiceName;
+import com.rzd.dispatcher.common.model.enums.ServiceName;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

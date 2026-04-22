@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.common.model.entity;
 
-import com.rzd.dispatcher.model.enums.Role;
+import com.rzd.dispatcher.common.model.enums.Role;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

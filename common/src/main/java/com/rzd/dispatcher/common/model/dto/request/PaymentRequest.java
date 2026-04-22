@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.common.model.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.math.BigDecimal;

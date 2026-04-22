@@ -1,7 +1,8 @@
 package com.rzd.dispatcher.common.model.entity;
 
-import com.rzd.dispatcher.model.enums.CargoType;
-import com.rzd.dispatcher.model.enums.PackagingType;
+import com.rzd.dispatcher.common.model.enums.CargoType;
+import com.rzd.dispatcher.common.model.enums.PackagingType;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

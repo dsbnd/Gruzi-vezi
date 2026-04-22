@@ -1,7 +1,7 @@
 package com.rzd.dispatcher.common.repository;
 
-import com.rzd.dispatcher.model.entity.Order;
-import com.rzd.dispatcher.model.enums.OrderStatus;
+import com.rzd.dispatcher.common.model.entity.Order;
+import com.rzd.dispatcher.common.model.enums.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

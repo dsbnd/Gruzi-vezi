@@ -2,7 +2,7 @@ package com.rzd.dispatcher.common.model.entity;
 
 import lombok.Data;
 import org.hibernate.annotations.GenericGenerator;
-
+import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 

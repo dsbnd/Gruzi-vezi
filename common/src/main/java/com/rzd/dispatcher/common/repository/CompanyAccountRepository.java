@@ -1,6 +1,6 @@
 package com.rzd.dispatcher.common.repository;
 
-import com.rzd.dispatcher.model.entity.CompanyAccount;
+import com.rzd.dispatcher.common.model.entity.CompanyAccount;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

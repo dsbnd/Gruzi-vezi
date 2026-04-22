@@ -1,8 +1,9 @@
 package com.rzd.dispatcher.common.model.entity;
 
 
-import com.rzd.dispatcher.model.enums.WagonStatus;
-import com.rzd.dispatcher.model.enums.WagonType;
+import com.rzd.dispatcher.common.model.enums.WagonStatus;
+import com.rzd.dispatcher.common.model.enums.WagonType;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

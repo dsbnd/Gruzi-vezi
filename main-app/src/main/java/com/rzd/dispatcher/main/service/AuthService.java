@@ -1,0 +1,139 @@
+package com.rzd.dispatcher.main.service;
+
+import com.rzd.dispatcher.common.model.dto.request.LoginRequest;
+import com.rzd.dispatcher.common.model.dto.request.RefreshTokenRequest;
+import com.rzd.dispatcher.common.model.dto.request.RegisterRequest;
+import com.rzd.dispatcher.common.model.dto.response.AuthResponse;
+import com.rzd.dispatcher.common.model.entity.User;
+import com.rzd.dispatcher.common.model.enums.Role;
+import com.rzd.dispatcher.common.repository.UserRepository;
+import com.rzd.dispatcher.main.security.JwtService;
+import com.rzd.dispatcher.main.security.RefreshTokenService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
+    private final AuthenticationManager authenticationManager;
+
+    public AuthResponse register(RegisterRequest request) {
+
+        request.validate();
+
+
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Пользователь с таким email уже зарегистрирован!");
+        }
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setUserType(request.getUserType());
+        user.setRole(Role.USER);
+
+
+        if ("LEGAL_ENTITY".equals(request.getUserType())) {
+
+            user.setCompanyName(request.getCompanyName());
+            user.setInn(request.getInn());
+            log.info("Регистрация юридического лица: {}, ИНН: {}",
+                    request.getCompanyName(), request.getInn());
+        } else {
+
+            user.setLastName(request.getLastName());
+            user.setFirstName(request.getFirstName());
+            user.setPatronymic(request.getPatronymic());
+            user.setPhone(request.getPhone());
+            user.setPassportSeries(request.getPassportSeries());
+            user.setPassportNumber(request.getPassportNumber());
+            user.setPassportIssuedBy(request.getPassportIssuedBy());
+            user.setPassportIssuedDate(request.getPassportIssuedDate());
+            user.setRegistrationAddress(request.getRegistrationAddress());
+            user.setSnils(request.getSnils());
+            user.setInn(request.getInn());
+
+
+            String fullName = String.format("%s %s %s",
+                    request.getLastName(),
+                    request.getFirstName(),
+                    request.getPatronymic() != null ? request.getPatronymic() : ""
+            ).trim();
+            user.setCompanyName(fullName);
+
+            log.info("Регистрация физического лица: {} {}, ИНН: {}, СНИЛС: {}",
+                    request.getLastName(),
+                    request.getFirstName(),
+                    request.getInn(),
+                    request.getSnils());
+        }
+
+        userRepository.save(user);
+        log.info("Пользователь успешно сохранен в БД с ID: {}", user.getId());
+
+        var jwtToken = jwtService.generateAccessToken(user.getEmail());
+        var refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+
+        return AuthResponse.builder()
+                .accessToken(jwtToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    public AuthResponse login(LoginRequest request) {
+        log.info("Попытка входа пользователя: {}", request.getEmail());
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+
+        var user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("Пользователь не найден в БД"));
+
+        log.info("Пользователь успешно вошел: {}, тип: {}",
+                user.getEmail(), user.getUserType());
+
+        var jwtToken = jwtService.generateAccessToken(user.getEmail());
+        var refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
+
+        return AuthResponse.builder()
+                .accessToken(jwtToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    public AuthResponse refreshToken(RefreshTokenRequest request) {
+        String requestRefreshToken = request.getRefreshToken();
+
+        String userEmail = refreshTokenService.getEmailByRefreshToken(requestRefreshToken);
+
+        if (userEmail == null) {
+            log.warn("Попытка обновления токена с недействительным refresh token");
+            throw new RuntimeException("Refresh token is invalid or expired");
+        }
+
+        log.info("Обновление токена для пользователя: {}", userEmail);
+
+        var accessToken = jwtService.generateAccessToken(userEmail);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(requestRefreshToken)
+                .build();
+    }
+
+    public void logout(String refreshToken) {
+        log.info("Выход пользователя, удаление refresh token");
+        refreshTokenService.deleteRefreshToken(refreshToken);
+    }
+}

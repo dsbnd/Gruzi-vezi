@@ -1,8 +1,8 @@
 package com.rzd.dispatcher.common.repository;
 
-import com.rzd.dispatcher.model.entity.Wagon;
-import com.rzd.dispatcher.model.enums.WagonStatus;
-import com.rzd.dispatcher.model.enums.WagonType;
+import com.rzd.dispatcher.common.model.entity.Wagon;
+import com.rzd.dispatcher.common.model.enums.WagonStatus;
+import com.rzd.dispatcher.common.model.enums.WagonType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;

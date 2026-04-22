@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.common.model.entity;
 
 import lombok.Data;
+import jakarta.persistence.*;
 import org.hibernate.annotations.GenericGenerator;
 
 import java.math.BigDecimal;

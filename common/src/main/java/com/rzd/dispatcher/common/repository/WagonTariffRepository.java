@@ -1,6 +1,6 @@
 package com.rzd.dispatcher.common.repository;
 
-import com.rzd.dispatcher.model.entity.WagonTariff;
+import com.rzd.dispatcher.common.model.entity.WagonTariff;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

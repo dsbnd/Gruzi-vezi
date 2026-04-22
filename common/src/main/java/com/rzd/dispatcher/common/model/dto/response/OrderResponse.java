@@ -1,7 +1,7 @@
 package com.rzd.dispatcher.common.model.dto.response;
 
-import com.rzd.dispatcher.model.entity.Order;
-import com.rzd.dispatcher.model.enums.*;
+import com.rzd.dispatcher.common.model.entity.Order;
+import com.rzd.dispatcher.common.model.enums.*;
 import lombok.Builder;
 import lombok.Data;
 

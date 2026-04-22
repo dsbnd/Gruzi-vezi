@@ -1,7 +1,7 @@
 package com.rzd.dispatcher.common.repository;
 
-import com.rzd.dispatcher.model.entity.Payment;
-import com.rzd.dispatcher.model.entity.Payment.PaymentStatus;
+import com.rzd.dispatcher.common.model.entity.Payment;
+import com.rzd.dispatcher.common.model.entity.Payment.PaymentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -57,7 +57,8 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     boolean existsByInnAndAmountAndPaymentPurposeAndStatusIn(
             String inn, BigDecimal amount, String paymentPurpose, List<PaymentStatus> statuses);
 
-    
-    @Query("SELECT p FROM Payment p WHERE p.status = 'PENDING' AND p.createdAt < CURRENT_DATE - 3")
+
+    @Query(value = "SELECT * FROM payments p WHERE p.status = 'PENDING' AND p.created_at < NOW() - INTERVAL '3 days'",
+            nativeQuery = true)
     List<Payment> findOverduePayments();
 }

@@ -1,0 +1,108 @@
+package com.rzd.dispatcher.main.controller;
+
+import com.rzd.dispatcher.common.model.dto.request.PaymentRequest;
+import com.rzd.dispatcher.common.model.dto.request.PaymentWebhookRequest;
+import com.rzd.dispatcher.common.model.dto.response.PaymentResponse;
+import com.rzd.dispatcher.main.service.PaymentService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/dispatcher/payments")
+@RequiredArgsConstructor
+public class PaymentController {
+
+    private final PaymentService paymentService;
+
+    @PostMapping("/corporate")
+    public ResponseEntity<PaymentResponse> createCorporatePayment(
+            @Valid @RequestBody PaymentRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        com.rzd.dispatcher.common.model.entity.Payment payment =
+                paymentService.createCorporatePayment(request, userDetails.getUsername());
+
+        return ResponseEntity.ok(convertToResponse(payment));
+    }
+    @PostMapping("/individual/confirm")
+    public ResponseEntity<PaymentResponse> confirmIndividualPayment(
+            @RequestParam String paymentDocument,
+            @RequestParam BigDecimal amount,
+            @RequestParam String inn) {
+
+        PaymentResponse response = paymentService.confirmIndividualPayment(paymentDocument, amount, inn);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/search/by-inn")
+    public ResponseEntity<List<PaymentResponse>> findPaymentsByInn(
+            @RequestParam String inn) {
+        List<PaymentResponse> payments = paymentService.findPaymentsByInn(inn);
+        return ResponseEntity.ok(payments);
+    }
+
+    @GetMapping("/{paymentId}/invoice")
+    public ResponseEntity<byte[]> generateInvoice(@PathVariable UUID paymentId) {
+        byte[] pdfContent = paymentService.generateInvoicePdf(paymentId);
+        return ResponseEntity.ok()
+                .header("Content-Type", "application/pdf")
+                .header("Content-Disposition", "attachment; filename=\"invoice_" + paymentId + ".pdf\"")
+                .body(pdfContent);
+    }
+
+    @PostMapping("/bank-webhook")
+    public ResponseEntity<PaymentResponse> handleBankWebhook(
+            @RequestBody PaymentWebhookRequest request) {
+        PaymentResponse response = paymentService.handleBankWebhook(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{paymentId}")
+    public ResponseEntity<PaymentResponse> getPaymentStatus(
+            @PathVariable UUID paymentId) {
+        PaymentResponse response = paymentService.getPaymentStatus(paymentId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/order/{orderId}")
+    public ResponseEntity<List<PaymentResponse>> getOrderPayments(
+            @PathVariable UUID orderId) {
+        List<PaymentResponse> payments = paymentService.getPaymentsByOrder(orderId);
+        return ResponseEntity.ok(payments);
+    }
+
+    @GetMapping("/order/{orderId}/paid")
+    public ResponseEntity<Boolean> isOrderPaid(@PathVariable UUID orderId) {
+        boolean paid = paymentService.isOrderPaid(orderId);
+        return ResponseEntity.ok(paid);
+    }
+
+    private PaymentResponse convertToResponse(com.rzd.dispatcher.common.model.entity.Payment payment) {
+        return PaymentResponse.builder()
+                .id(payment.getId())
+                .orderId(payment.getOrderId())
+                .paymentId(payment.getPaymentId())
+                .amount(payment.getAmount())
+                .status(payment.getStatus().name())
+                .paymentMethod(payment.getPaymentMethod())
+                .companyName(payment.getCompanyName())
+                .inn(payment.getInn())
+                .kpp(payment.getKpp())
+                .bik(payment.getBik())
+                .accountNumber(payment.getAccountNumber())
+                .bankName(payment.getBankName())
+                .paymentDocument(payment.getPaymentDocument())
+                .paymentPurpose(payment.getPaymentPurpose())
+                .createdAt(payment.getCreatedAt())
+                .paidAt(payment.getPaidAt())
+                .build();
+    }
+}
