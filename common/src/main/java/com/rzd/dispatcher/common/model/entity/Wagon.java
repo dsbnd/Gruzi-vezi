@@ -1,6 +1,7 @@
 package com.rzd.dispatcher.common.model.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.rzd.dispatcher.common.model.enums.WagonStatus;
 import com.rzd.dispatcher.common.model.enums.WagonType;
 import jakarta.persistence.*;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Wagon {
     @Id
     @GeneratedValue(generator = "UUID")

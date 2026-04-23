@@ -1,5 +1,7 @@
 package com.rzd.dispatcher.common.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.rzd.dispatcher.common.model.entity.Cargo;
 import com.rzd.dispatcher.common.model.entity.OrderExtra;
 import com.rzd.dispatcher.common.model.enums.OrderStatus;
@@ -21,6 +23,7 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Order {
     @Id
     @GeneratedValue(generator = "UUID")
@@ -42,6 +45,7 @@ public class Order {
     @Column(name = "requested_wagon_type", nullable = false)
     private WagonType requestedWagonType;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wagon_id")
     private Wagon wagon;

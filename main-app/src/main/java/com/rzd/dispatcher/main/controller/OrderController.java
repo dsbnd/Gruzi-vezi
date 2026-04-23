@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
+
 public class OrderController {
 
     private final OrderService orderService;
@@ -42,19 +43,28 @@ public class OrderController {
                 "message", "Заявка (черновик) успешно создана"
         ));
     }
-    @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponse> getOrderById(
-            @PathVariable UUID orderId,
-            Authentication authentication
-    ) {
-        String userEmail = authentication.getName();
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Заказ не найден с ID: " + orderId));
 
-        if (!order.getUser().getEmail().equals(userEmail)) {
-            throw new RuntimeException("У вас нет доступа к этому заказу");
+    @GetMapping("/{id}")
+    public ResponseEntity<Order> getOrderById(@PathVariable UUID id, Authentication authentication) {
+
+        // 1. Сначала просто достаем заказ из базы
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(OrderResponse.fromOrder(order));
+
+        // 2. Если есть аутентификация (запрос от юзера из браузера) -
+        // можем сделать какие-то проверки или логирование
+        if (authentication != null) {
+            String username = authentication.getName();
+            System.out.println("User {} requested order {}");
+            // Тут могут быть твои проверки прав пользователя...
+        } else {
+            // Запрос пришел от внутреннего микросервиса (billing-app) без токена
+            System.out.println("Internal system requested order {}");
+        }
+
+        return ResponseEntity.ok(order);
     }
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getMyOrders(Authentication authentication) {

@@ -1,24 +1,30 @@
 package com.rzd.dispatcher.billing.config;
 
 import com.rabbitmq.jms.admin.RMQConnectionFactory;
+import com.rabbitmq.jms.admin.RMQDestination;
 import jakarta.jms.BytesMessage;
 import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Destination;
 import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import jakarta.jms.Session;
 import jakarta.jms.TextMessage;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jms.annotation.EnableJms;
 import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.springframework.jms.support.converter.MessageConversionException;
 import org.springframework.jms.support.converter.MessageConverter;
+import org.springframework.jms.support.destination.BeanFactoryDestinationResolver;
 
 import java.nio.charset.StandardCharsets;
 
 @Configuration
 @EnableJms
 public class JmsConfig {
+
+    public static final String ORDER_COMPLETED_QUEUE = "order.completed.v6";
 
     @Bean
     public ConnectionFactory jmsConnectionFactory() {
@@ -28,6 +34,19 @@ public class JmsConfig {
         factory.setUsername("guest");
         factory.setPassword("guest");
         return factory;
+    }
+
+    // AMQP-native destination: читаем сырой AMQP body без JMS-конверта.
+    // Нужен, т.к. продюсер — STOMP (не-JMS), и RMQ-JMS иначе пытается ObjectInputStream-ить тело.
+    @Bean(name = "orderCompletedQueue")
+    public Destination orderCompletedQueue() {
+        RMQDestination d = new RMQDestination();
+        d.setDestinationName(ORDER_COMPLETED_QUEUE);
+        d.setAmqp(true);
+        d.setAmqpExchangeName("");
+        d.setAmqpRoutingKey(ORDER_COMPLETED_QUEUE);
+        d.setAmqpQueueName(ORDER_COMPLETED_QUEUE);
+        return d;
     }
 
     // Абсолютно сырой конвертер, который не доверяет заголовкам
@@ -72,14 +91,15 @@ public class JmsConfig {
     @Bean
     public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
             ConnectionFactory connectionFactory,
-            MessageConverter rawStringMessageConverter) {
+            MessageConverter rawStringMessageConverter,
+            BeanFactory beanFactory) {
 
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setSessionTransacted(true);
-
-        // ВНИМАНИЕ: Регистрируем наш конвертер
         factory.setMessageConverter(rawStringMessageConverter);
+        // @JmsListener(destination="orderCompletedQueue") найдёт Destination-бин, а не создаст новый с amqp=false
+        factory.setDestinationResolver(new BeanFactoryDestinationResolver(beanFactory));
         return factory;
     }
 }

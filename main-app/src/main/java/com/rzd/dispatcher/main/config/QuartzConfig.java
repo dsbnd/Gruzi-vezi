@@ -25,7 +25,7 @@ public class QuartzConfig {
                 .forJob(autoDeliveryJobDetail)
                 .withIdentity("autoDeliveryTrigger")
                 .withSchedule(SimpleScheduleBuilder.simpleSchedule()
-                        .withIntervalInMinutes(1) // Запуск каждую 1 минуту
+                        .withIntervalInSeconds(10) // Запуск каждую 10 секунд
                         .repeatForever())
                 .build();
     }
