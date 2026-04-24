@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -45,26 +46,12 @@ public class OrderController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Order> getOrderById(@PathVariable UUID id, Authentication authentication) {
-
-        // 1. Сначала просто достаем заказ из базы
-        Order order = orderRepository.findById(id).orElse(null);
-        if (order == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        // 2. Если есть аутентификация (запрос от юзера из браузера) -
-        // можем сделать какие-то проверки или логирование
-        if (authentication != null) {
-            String username = authentication.getName();
-            System.out.println("User {} requested order {}");
-            // Тут могут быть твои проверки прав пользователя...
-        } else {
-            // Запрос пришел от внутреннего микросервиса (billing-app) без токена
-            System.out.println("Internal system requested order {}");
-        }
-
-        return ResponseEntity.ok(order);
+    @Transactional(readOnly = true)
+    public ResponseEntity<OrderResponse> getOrderById(@PathVariable UUID id, Authentication authentication) {
+        return orderRepository.findById(id)
+                .map(OrderResponse::fromOrder)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
     @GetMapping
     public ResponseEntity<List<OrderResponse>> getMyOrders(Authentication authentication) {
