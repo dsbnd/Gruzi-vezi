@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<shippingNote>
+  <orderId>001114fe-f612-4d78-8b76-37b3ea5dad64</orderId>
+  <details>{"id":"001114fe-f612-4d78-8b76-37b3ea5dad64","userId":"0f22dba8-eb37-460f-acd2-f1fe8ec324e3","companyName":"ООО СОМ","departureStation":"Москва-Товарная","destinationStation":"Екатеринбург-Товарный","requestedWagonType":"крытый","wagonId":null,"wagonNumber":null,"status":"доставлен","totalPrice":null,"carbonFootprintKg":null,"createdAt":"2026-02-28T10:31:35.661132Z","cargo":{"cargoType":"Электроника","weightKg":15000,"volumeM3":1000,"packagingType":"Паллеты"},"services":null}</details>
+  <timestamp>2026-04-27T17:24:14.979840Z</timestamp>
+</shippingNote>

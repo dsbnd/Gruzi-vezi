@@ -35,9 +35,7 @@ dependencies {
     implementation 'jakarta.jms:jakarta.jms-api:3.1.0'
 
     // Atomikos для распределённых транзакций
-    implementation 'com.atomikos:transactions-spring-boot3-starter:6.0.0'
-    implementation 'com.atomikos:transactions-jta:6.0.0'
-    implementation 'jakarta.transaction:jakarta.transaction-api:2.0.1'
+    implementation 'dev.snowdrop:narayana-spring-boot-starter:3.1.0'
 
     // JCA API для адаптера
     implementation 'jakarta.resource:jakarta.resource-api:2.1.0'

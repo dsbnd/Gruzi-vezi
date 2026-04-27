@@ -17,6 +17,7 @@ import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.springframework.jms.support.converter.MessageConversionException;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.destination.BeanFactoryDestinationResolver;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import java.nio.charset.StandardCharsets;
 
@@ -92,13 +93,14 @@ public class JmsConfig {
     public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
             ConnectionFactory connectionFactory,
             MessageConverter rawStringMessageConverter,
-            BeanFactory beanFactory) {
+            BeanFactory beanFactory,
+            PlatformTransactionManager transactionManager) {
 
         DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setSessionTransacted(true);
+        factory.setTransactionManager(transactionManager);
         factory.setMessageConverter(rawStringMessageConverter);
-        // @JmsListener(destination="orderCompletedQueue") найдёт Destination-бин, а не создаст новый с amqp=false
         factory.setDestinationResolver(new BeanFactoryDestinationResolver(beanFactory));
         return factory;
     }
