@@ -46,11 +46,9 @@ public class AutoDeliveryJob extends QuartzJobBean {
         }
 
         for (Order order : ordersInTransit) {
-            // Меняем статус заявки на "доставлен"
             order.setStatus(OrderStatus.доставлен);
             orderRepository.save(order);
 
-            // Освобождаем привязанный вагон и меняем его станцию
             Wagon wagon = order.getWagon();
             if (wagon != null) {
                 wagon.setStatus(WagonStatus.свободен);
@@ -65,9 +63,6 @@ public class AutoDeliveryJob extends QuartzJobBean {
         }
     }
 
-    /**
-     * Отправка события о завершении заказа через STOMP в RabbitMQ
-     */
     private void sendOrderCompletedEvent(Order order) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -76,17 +71,14 @@ public class AutoDeliveryJob extends QuartzJobBean {
             ObjectMapper mapper = new ObjectMapper();
             String jsonString = mapper.writeValueAsString(payload);
 
-            // МАГИЯ ЗДЕСЬ: Явно указываем брокеру, что это ПРОСТОЙ ТЕКСТ
             StompHeaders headers = new StompHeaders();
-            headers.setDestination("/queue/order.completed.v6"); // Новая чистая очередь
-            headers.setContentType(MimeTypeUtils.TEXT_PLAIN); // Указываем тип контента!
-
-            // Отправляем сообщение вместе с заголовками
+            headers.setDestination("/queue/order.completed.v6");
+            headers.setContentType(MimeTypeUtils.TEXT_PLAIN);
             stompSession.send(headers, jsonString);
 
-            log.info("✉️ STOMP сообщение отправлено в очередь v6: {}", jsonString);
+            log.info("STOMP сообщение отправлено в очередь v6: {}", jsonString);
         } catch (Exception e) {
-            log.error("❌ Ошибка отправки STOMP сообщения", e);
+            log.error("Ошибка отправки STOMP сообщения", e);
         }
     }
 }

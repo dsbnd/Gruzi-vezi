@@ -8,8 +8,6 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class WebConfig {
 
-    // Именно этот бин ищет Spring!
-    // Аннотация @LoadBalanced заставляет его работать через Eureka
     @Bean
     @LoadBalanced
     public RestTemplate restTemplate() {

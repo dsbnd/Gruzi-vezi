@@ -15,9 +15,8 @@ public class MockWmsConnection implements WmsConnection {
 
     @Override
     public void sendShippingNote(String orderId, String xmlContent) throws ResourceException {
-        log.info("💼 [JCA/WMS] Отправка накладной для заказа {} в Систему Складского Учёта...", orderId);
+        log.info("[JCA/WMS] Отправка накладной для заказа {} в Систему Складского Учёта...", orderId);
 
-        // Имитация: запись XML‑файла в папку "wms_outbox"
         try {
             Path outboxDir = Paths.get("wms_outbox");
             if (!Files.exists(outboxDir)) {
@@ -27,9 +26,9 @@ public class MockWmsConnection implements WmsConnection {
             String filename = String.format("shipping_note_%s_%s.xml", orderId, timestamp);
             Path filePath = outboxDir.resolve(filename);
             Files.writeString(filePath, xmlContent);
-            log.info("✅ [JCA/WMS] Накладная сохранена в {}", filePath.toAbsolutePath());
+            log.info("[JCA/WMS] Накладная сохранена в {}", filePath.toAbsolutePath());
         } catch (IOException e) {
-            log.error("❌ [JCA/WMS] Ошибка при сохранении накладной", e);
+            log.error("[JCA/WMS] Ошибка при сохранении накладной", e);
             throw new ResourceException("Не удалось отправить накладную в WMS", e);
         }
     }

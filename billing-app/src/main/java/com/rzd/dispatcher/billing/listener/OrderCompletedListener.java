@@ -16,7 +16,7 @@ import jakarta.resource.ResourceException;
 @RequiredArgsConstructor
 public class OrderCompletedListener {
 
-    private final RestTemplate restTemplate; // балансировщик Eureka
+    private final RestTemplate restTemplate;
     private final WmsConnectionFactory wmsConnectionFactory;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -28,22 +28,19 @@ public class OrderCompletedListener {
             JsonNode rootNode = objectMapper.readTree(payload);
             String orderId = rootNode.get("orderId").asText();
 
-            // Запрашиваем детали заказа у MAIN-APP (Service Discovery)
             String mainAppUrl = "http://RZD-DISPATCHER/api/orders/" + orderId;
             String orderDetailsJson = restTemplate.getForObject(mainAppUrl, String.class);
-            log.info("📄 Детали заказа: {}", orderDetailsJson);
+            log.info("Детали заказа: {}", orderDetailsJson);
 
-            // Генерируем простую XML‑накладную
             String xmlShippingNote = generateXmlShippingNote(orderId, orderDetailsJson);
 
-            // Отправляем в WMS через JCA
             try (WmsConnection connection = wmsConnectionFactory.getConnection()) {
                 connection.sendShippingNote(orderId, xmlShippingNote);
                 log.info("Накладная успешно отправлена в WMS через JCA");
 
             } catch (ResourceException e) {
                 log.error("Ошибка JCA при отправке в WMS", e);
-                throw new RuntimeException("JCA WMS error", e); // откат транзакции
+                throw new RuntimeException("JCA WMS error", e);
             }
 
         } catch (Exception e) {

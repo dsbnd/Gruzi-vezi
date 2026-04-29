@@ -8,8 +8,6 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class WebConfig {
 
-    // Аннотация @LoadBalanced включает магию Service Discovery!
-    // Теперь RestTemplate будет искать адреса не в DNS (ебаные компсети), а в Eureka.
     @Bean
     @LoadBalanced
     public RestTemplate loadBalancedRestTemplate() {

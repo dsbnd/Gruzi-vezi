@@ -21,11 +21,10 @@ public class StompConfig {
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
         stompClient.setMessageConverter(new org.springframework.messaging.converter.StringMessageConverter()); //передаем прямо текст, а не бинарный json объект
 
-        // ДОБАВЛЕНО: Настраиваем "сердцебиение", чтобы RabbitMQ не закрывал соединение из-за неактивности
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
         taskScheduler.initialize();
         stompClient.setTaskScheduler(taskScheduler);
-        stompClient.setDefaultHeartbeat(new long[]{10000, 10000}); // Отправлять пинг каждые 10 секунд
+        stompClient.setDefaultHeartbeat(new long[]{10000, 10000});
 
         String url = "ws://localhost:15674/ws";
 
@@ -36,12 +35,12 @@ public class StompConfig {
         return stompClient.connectAsync(url, new WebSocketHttpHeaders(), connectHeaders, new StompSessionHandlerAdapter() {
             @Override
             public void afterConnected(StompSession session, StompHeaders headers) {
-                log.info("✅ STOMP успешно подключен к RabbitMQ!");
+                log.info("STOMP успешно подключен к RabbitMQ!");
             }
 
             @Override
             public void handleTransportError(StompSession session, Throwable exception) {
-                log.error("❌ Ошибка STOMP: {}", exception.getMessage());
+                log.error("Ошибка STOMP: {}", exception.getMessage());
             }
         }).get();
     }
