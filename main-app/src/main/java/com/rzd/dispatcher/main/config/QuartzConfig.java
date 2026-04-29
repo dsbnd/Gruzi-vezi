@@ -11,9 +11,9 @@ public class QuartzConfig {
 
     @Bean
     public JobDetail autoDeliveryJobDetail() {
-        return JobBuilder.newJob(AutoDeliveryJob.class)
-                .withIdentity("autoDeliveryJob")
-                .storeDurably()
+        return JobBuilder.newJob(AutoDeliveryJob.class)// какую задачу надо выполнить
+                .withIdentity("autoDeliveryJob") //дали задаче уникальное имя
+                .storeDurably()  //сохранили в памяти
                 .build();
     }
 

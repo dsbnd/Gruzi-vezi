@@ -9,8 +9,8 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration
-@EnableScheduling
-@EnableSchedulerLock(defaultLockAtMostFor = "PT5M")
+@EnableScheduling //поддержка фоновых задач в Spring
+@EnableSchedulerLock(defaultLockAtMostFor = "PT5M") //при зависании авто сброс через 5 минут
 public class ShedLockConfig {
 
     @Bean

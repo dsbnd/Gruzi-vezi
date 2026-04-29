@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.util.MimeTypeUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +32,7 @@ public class AutoDeliveryJob extends QuartzJobBean {
     private final WagonRepository wagonRepository;
     private final StompSession stompSession;
     @Override
-    @SchedulerLock(name = "AutoDeliveryJob", lockAtLeastFor = "PT10S")
+    @SchedulerLock(name = "AutoDeliveryJob", lockAtLeastFor = "PT10S") //замок блокировки на 10 секунд
     @Transactional
     protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
         log.info("Запуск планировщика Quartz: проверка прибывающих поездов...");
