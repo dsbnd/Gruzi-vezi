@@ -11,11 +11,11 @@ import javax.naming.NamingException;
 import javax.naming.Reference;
 
 @Component
-public class MockWmsConnectionFactory implements WmsConnectionFactory {
+public class LocalFileWmsConnectionFactory implements WmsConnectionFactory {
 
     @Override
     public WmsConnection getConnection() throws ResourceException {
-        return new MockWmsConnection();
+        return new FileBasedWmsConnection();
     }
 
     @Override

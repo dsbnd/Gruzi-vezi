@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Slf4j
-public class MockWmsConnection implements WmsConnection {
+public class FileBasedWmsConnection implements WmsConnection {
 
     @Override
     public void sendShippingNote(String orderId, String xmlContent) throws ResourceException {

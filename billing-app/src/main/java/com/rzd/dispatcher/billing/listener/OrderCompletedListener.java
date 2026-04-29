@@ -37,7 +37,7 @@ public class OrderCompletedListener {
             try (WmsConnection connection = wmsConnectionFactory.getConnection()) {
                 connection.sendShippingNote(orderId, xmlShippingNote);
                 log.info("Накладная успешно отправлена в WMS через JCA");
-
+//                throw new RuntimeException("ТЕСТ XA: проверка отката транзакции");
             } catch (ResourceException e) {
                 log.error("Ошибка JCA при отправке в WMS", e);
                 throw new RuntimeException("JCA WMS error", e);
