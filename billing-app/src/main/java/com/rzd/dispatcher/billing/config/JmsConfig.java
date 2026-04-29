@@ -74,7 +74,7 @@ public class JmsConfig {
                     }
 
                 } catch (Exception e) {
-                    return "Unparseable Message: " + message.getJMSMessageID();
+                    return "Не получилось распарсить сообщение: " + message.getJMSMessageID();
                 }
                 return message.toString();
             }

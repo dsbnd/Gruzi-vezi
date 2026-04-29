@@ -17,7 +17,9 @@ import jakarta.resource.ResourceException;
 public class OrderCompletedListener {
 
     private final RestTemplate restTemplate;
+
     private final WmsConnectionFactory wmsConnectionFactory;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @JmsListener(destination = "orderCompletedQueue")
@@ -32,32 +34,18 @@ public class OrderCompletedListener {
             String orderDetailsJson = restTemplate.getForObject(mainAppUrl, String.class);
             log.info("Детали заказа: {}", orderDetailsJson);
 
-            String xmlShippingNote = generateXmlShippingNote(orderId, orderDetailsJson);
-
             try (WmsConnection connection = wmsConnectionFactory.getConnection()) {
-                connection.sendShippingNote(orderId, xmlShippingNote);
-                log.info("Накладная успешно отправлена в WMS через JCA");
-//                throw new RuntimeException("ТЕСТ XA: проверка отката транзакции");
+                connection.sendShippingNote(orderId, orderDetailsJson);
+                log.info("Накладная успешно отправлена в ЕИС Google Sheets через JCA");
+
             } catch (ResourceException e) {
-                log.error("Ошибка JCA при отправке в WMS", e);
-                throw new RuntimeException("JCA WMS error", e);
+                log.error("Ошибка JCA при отправке в Google Sheets", e);
+                throw new RuntimeException("JCA Google Sheets error", e); // откат транзакции
             }
 
         } catch (Exception e) {
             log.error("Критическая ошибка в Listener", e);
             throw new RuntimeException(e);
         }
-    }
-
-    private String generateXmlShippingNote(String orderId, String orderJson) {
-        return String.format(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
-                        "<shippingNote>\n" +
-                        "  <orderId>%s</orderId>\n" +
-                        "  <details>%s</details>\n" +
-                        "  <timestamp>%s</timestamp>\n" +
-                        "</shippingNote>",
-                orderId, orderJson, java.time.Instant.now().toString()
-        );
     }
 }
