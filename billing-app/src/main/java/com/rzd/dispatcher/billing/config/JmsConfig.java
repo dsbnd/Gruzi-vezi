@@ -1,5 +1,6 @@
 package com.rzd.dispatcher.billing.config;
 
+import com.google.api.client.util.Value;
 import com.rabbitmq.jms.admin.RMQConnectionFactory;
 import com.rabbitmq.jms.admin.RMQDestination;
 import jakarta.jms.BytesMessage;
@@ -27,13 +28,25 @@ public class JmsConfig {
 
     public static final String ORDER_COMPLETED_QUEUE = "order.completed.v6";
 
+    @Value("${spring.rabbitmq.host:localhost}")
+    private String rabbitmqHost;
+
+    @Value("${spring.rabbitmq.port:5672}")
+    private int rabbitmqPort;
+
+    @Value("${spring.rabbitmq.username:guest}")
+    private String rabbitmqUsername;
+
+    @Value("${spring.rabbitmq.password:guest}")
+    private String rabbitmqPassword;
+
     @Bean
     public ConnectionFactory jmsConnectionFactory() {
         RMQConnectionFactory factory = new RMQConnectionFactory();
-        factory.setHost("localhost");
-        factory.setPort(5672);
-        factory.setUsername("guest");
-        factory.setPassword("guest");
+        factory.setHost(rabbitmqHost);
+        factory.setPort(rabbitmqPort);
+        factory.setUsername(rabbitmqUsername);
+        factory.setPassword(rabbitmqPassword);
         return factory;
     }
 

@@ -1,9 +1,9 @@
 package com.rzd.dispatcher.main.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
@@ -16,21 +16,30 @@ import org.springframework.web.socket.messaging.WebSocketStompClient;
 @Configuration
 public class StompConfig {
 
+    @Value("${spring.rabbitmq.host:localhost}")
+    private String rabbitmqHost;
+
+    @Value("${spring.rabbitmq.username:guest}")
+    private String rabbitmqUsername;
+
+    @Value("${spring.rabbitmq.password:guest}")
+    private String rabbitmqPassword;
+
     @Bean
     public StompSession stompSession() throws Exception {
         WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(new org.springframework.messaging.converter.StringMessageConverter()); //передаем прямо текст, а не бинарный json объект
+        stompClient.setMessageConverter(new org.springframework.messaging.converter.StringMessageConverter());
 
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
         taskScheduler.initialize();
         stompClient.setTaskScheduler(taskScheduler);
         stompClient.setDefaultHeartbeat(new long[]{10000, 10000});
 
-        String url = "ws://localhost:15674/ws";
+        String url = "ws://" + rabbitmqHost + ":15674/ws";
 
         StompHeaders connectHeaders = new StompHeaders();
-        connectHeaders.setLogin("guest");
-        connectHeaders.setPasscode("guest");
+        connectHeaders.setLogin(rabbitmqUsername);
+        connectHeaders.setPasscode(rabbitmqPassword);
 
         return stompClient.connectAsync(url, new WebSocketHttpHeaders(), connectHeaders, new StompSessionHandlerAdapter() {
             @Override
