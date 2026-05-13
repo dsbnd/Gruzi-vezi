@@ -1,6 +1,6 @@
 package com.rzd.dispatcher.billing.config;
 
-import com.google.api.client.util.Value;
+import org.springframework.beans.factory.annotation.Value;
 import com.rabbitmq.jms.admin.RMQConnectionFactory;
 import com.rabbitmq.jms.admin.RMQDestination;
 import jakarta.jms.BytesMessage;
